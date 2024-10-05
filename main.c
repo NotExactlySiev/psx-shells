@@ -307,7 +307,7 @@ void init_pad()
     SIO_MODE(0) = SIO_MODE_BAUD_DIV1 | SIO_MODE_DATA_8;
 }
 
-uint32_t read_pad()
+uint16_t read_pad()
 {
     SIO_CTRL(0) = SIO_CTRL_TX_ENABLE | SIO_CTRL_DTR | SIO_CTRL_DSR_IRQ_ENABLE;
     for (int i = 0; i < 300; i++)
@@ -322,8 +322,20 @@ uint32_t read_pad()
     }
 
     SIO_CTRL(0) = SIO_CTRL_TX_ENABLE | SIO_CTRL_ACKNOWLEDGE;
-    return *(uint32_t*)&resp[1];
+    return ~(*(uint16_t*)&resp[3]);
 }
+
+typedef enum {
+    PAD_UP      =   1 << 4,
+    PAD_RIGHT   =   1 << 5,
+    PAD_DOWN    =   1 << 6,
+    PAD_LEFT    =   1 << 7,
+
+    PAD_TRI     =   1 << 12,
+    PAD_CIRCLE  =   1 << 13,
+    PAD_CROSS   =   1 << 14,
+    PAD_SQUARE  =   1 << 15,
+} Button;
 
 int _start()
 {
@@ -333,7 +345,6 @@ int _start()
     r = 432143;
 
     GPU_GP1 = gp1_resetGPU();
-    //InitJoy();
     init_pad();
 
     // enable display
@@ -376,19 +387,56 @@ int _start()
     uint t = 0;
     int angle_x = ONE/16;
     int angle_y = 0;
+    uint16_t pad = 0;
+    Vec3 pos = { -2*ONE, 0, -2*ONE };
     for (;;) {
         uint32_t idle = 0;
         // wait for vblank interrupt
         while (!(IRQ_STAT & IRQ_GPU))
             idle += 1;
         IRQ_STAT = 0;
-        printf("IDLE: %d\n", idle);
+        printf("IDLE: %d\t", idle);
         t += 1;
 
-        //read_pad();
-        //printf("%X\n", ReadJoy());
-        printf("%X\n", read_pad());
+        uint16_t pad_new = read_pad();
+        uint16_t pad_edge = pad ^ pad_new;
+        uint16_t pressed = pad_new & pad_edge;
+        pad = pad_new;
 
+        if (pad & PAD_CROSS) {
+            const int move_increment = ONE/16;
+            // move patch around
+            if (pressed & PAD_UP) {
+                pos.z += move_increment;
+            } else if (pressed & PAD_DOWN) {
+                pos.z -= move_increment;
+            }
+            
+            if (pressed & PAD_LEFT) {
+                pos.x -= move_increment;
+            } else if (pressed & PAD_RIGHT) {
+                pos.x += move_increment;
+            }
+        } else if (pad & PAD_CIRCLE) {
+
+        } else {
+            // camera controls
+            if (pad & PAD_UP) {
+                angle_x += 10;
+            } else if (pad & PAD_DOWN) {
+                angle_x -= 10;
+            }
+
+            if (angle_x < 0) angle_x = 0;
+            if (angle_x > ONE/4) angle_x = ONE/4;
+            
+            if (pad & PAD_LEFT) {
+                angle_y -= 10;
+            } else if (pad & PAD_RIGHT) {
+                angle_y += 10;
+            }
+        }
+        
         //int angle = (ONE / 4) / 5;
         //angle_x = (ONE + isin(2 * t)) / 45 + ONE/64;
         int sint = isin(angle_x);
@@ -400,7 +448,6 @@ int _start()
             { 0, 0, 0 }
         };
 
-        angle_y = t;
         sint = isin(angle_y);
         cost = icos(angle_y);
 
@@ -427,13 +474,7 @@ int _start()
         GPU_GP0 = gp0_xy(0, 0);
         GPU_GP0 = gp0_xy(640, 511);
 
-
-        //draw_patch((Vec3) { -1.96*ONE, 0, 0 }, icos(t * 27) / 7, isin(t * 19) * 8);
-        //draw_patch((Vec3) {  1.96*ONE, 0, 0 }, isin(t * 28) / 7, isin(t * 19) * 8);
-        draw_patch((Vec3) {    0, 0, 0 }, icos(t * 26) / 8, icos(t * 17) * 7);
-        //draw_patch(0, (Vec3) { -1 * ONE, 0,  1 * ONE });
-        //draw_patch(0, (Vec3) {  1 * ONE, 0, -1 * ONE });
-        //draw_patch(0, (Vec3) { -1 * ONE, 0, -1 * ONE });
+        draw_patch(pos, icos(t * 26) / 8, icos(t * 17) * 7);
         draw_axes();
     }
 }
