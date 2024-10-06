@@ -148,8 +148,8 @@ void draw_line(PrimBuf *pb, Vec3 a, Vec3 b, uint32_t color)
 Vec3 camera = {0};
 Mat projection;
 
-int near = 2*ONE;
-int far = 50*ONE;
+int near = 1*ONE;
+int far = 35*ONE;
 
 int iabs(int x)
 {
@@ -174,8 +174,9 @@ bool in_view(Vec3 point, Vec3 *projected)
         projected->y = ((SCREEN_W / 2) * projected->y) / projected->z;
     }
     return (proj.z > near && proj.z < far)
-        && (iabs(proj.x) <= proj.z + 0*proj.z/4)
-        && (iabs(proj.y) <= proj.z + 0*proj.z/4);
+        && (iabs(proj.x) <= proj.z + 3*proj.z/5)
+        && (iabs(proj.y) <= proj.z + 3*proj.z/8)
+        ;
 }
 
 void draw_axes(PrimBuf *pb)
@@ -217,7 +218,7 @@ void draw_patch(PrimBuf *pb, Vec3 pos, uint l, int sheer, int spread,
     if (l > 0) {
         Vec3 camera_xz = { camera.x, 0, camera.z };
         uint64_t distance2 = vec3_mag2(vec3_sub(pos, camera_xz));
-        uint64_t threshhold = (ONE/2) * (1 << (l));
+        uint64_t threshhold = (ONE) * (1 << (l));
         uint64_t threshhold2 = threshhold * threshhold / ONE;
         
         if (distance2 < threshhold2) {
@@ -239,9 +240,7 @@ void draw_patch(PrimBuf *pb, Vec3 pos, uint l, int sheer, int spread,
     if (!in_view(pos, NULL)) {
         return;
     }
-    
-    // 0 is 1/4 units (32 * 32 texels)
-    // each level is double
+
     const Vec3 verts[4] = {
         { -len, 0, -len },
         {  len, 0, -len },
@@ -282,15 +281,10 @@ void draw_patch(PrimBuf *pb, Vec3 pos, uint l, int sheer, int spread,
     }
     
     for (int layer = 0; layer < NLAYERS; layer++) {
-        /*draw_quad(pb, final[layer], 20 - layer,
-            gp0_page(768 / 64, 0, GP0_BLEND_ADD, GP0_COLOR_4BPP),
-            gp0_clut(768 / 16, 256 + layer)
-        );*/
         draw_quad(pb, final[layer], 20 - layer,
             gp0_page(768 / 64, 0, GP0_BLEND_ADD, GP0_COLOR_4BPP),
             gp0_clut(768 / 16, 256 + layer),
             u0, v0, u1-1, v1-1
-            //0, 0, 63, 63
         );
     }
 }
