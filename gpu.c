@@ -16,6 +16,36 @@ struct PrimBuf {
 static PrimBuf primbufs[2];
 static int curr = 0;
 
+#define RCntCNT3    0xF2000003
+#define EvSpINT     0x0002
+#define EvMdINTR    0x1000
+
+int enable_vblank_event(void* handler)
+{
+    int event;
+    EnterCriticalSection();
+    event = OpenEvent(RCntCNT3, EvSpINT, EvMdINTR, handler);    
+    enable_timer_irq(3);
+    EnableEvent(event);
+    ExitCriticalSection();
+    return event;
+}
+
+void disable_vblank_event(int event)
+{
+    EnterCriticalSection();
+    StopRCnt(RCntCNT3);
+    disable_timer_irq(3);
+    CloseEvent(event);
+    ExitCriticalSection();
+}
+
+int frame = 0;
+void vsync_handler(void)
+{
+    frame++;
+}
+
 static void clear_buffer(PrimBuf *pb)
 {
     pb->next = &pb->data[0];
@@ -37,6 +67,9 @@ PrimBuf *gpu_init(void)
 {
     curr = 0;
     clear_buffer(&primbufs[curr]);
+    int ev = enable_vblank_event(vsync_handler);
+    frame = 0;
+
     return &primbufs[curr];
 }
 
@@ -53,6 +86,8 @@ uint32_t *next_prim(PrimBuf *pb, int len, int layer)
 // TODO: rename to gpu_swap
 PrimBuf *swap_buffer(void)
 {
+    static int last_rendered = 0;
+
     uint32_t *prim;
     PrimBuf *pb = &primbufs[curr];
     
@@ -64,10 +99,9 @@ PrimBuf *swap_buffer(void)
 	prim[2] = gp0_fbOffset2(bufferX + SCREEN_W - 1, bufferY + SCREEN_H - 2);
 	prim[3] = gp0_fbOrigin(bufferX + SCREEN_W / 2, bufferY + SCREEN_H / 2);
 
-    gpu_sync();
-    
-    while (!(IRQ_STAT & (1 << IRQ_VSYNC)));
-    IRQ_STAT = 0;
+    gpu_sync();    
+    while (last_rendered == frame);
+    last_rendered = frame;
 
     send_prims(&primbufs[curr].layers[PRIM_NLAYERS]);
     curr = 1 - curr;
@@ -79,7 +113,7 @@ PrimBuf *swap_buffer(void)
     prim[0] = gp0_rgb(10, 70, 250) | gp0_vramFill();
     prim[1] = gp0_xy((curr) * SCREEN_W, 0);
     prim[2] = gp0_xy(SCREEN_W, SCREEN_H);
-    
+
     return &primbufs[curr];
 }
 

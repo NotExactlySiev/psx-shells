@@ -1,28 +1,10 @@
 #include <stdint.h>
 
+#include "common.h"
 #include "registers.h"
 #include "gpucmd.h"
-
 #include "clock.h"
 #include "gpu.h"
-
-#define PREC    12
-#define ONE     (1 << PREC)
-
-void printf(char* fmt, ...);
-
-static int fixed_div(int a, int b)
-{
-    return (a * ONE) / b;
-}
-
-static int fixed_mul(int a, int b)
-{
-    return a * b / ONE;
-}
-
-typedef unsigned short  ushort;
-typedef unsigned int    uint;
 
 unsigned int _seed = 2891583007UL;
 
@@ -269,10 +251,11 @@ void draw_line(PrimBuf *pb, Vec3 a, Vec3 b, uint32_t color)
 Mat projection;
 
 int near = 2*ONE;
-int far = 20*ONE;
+int far = 50*ONE;
 
 int iabs(int x)
 {
+    return x < 0 ? -x : x;
     asm("sra %0,%1,31\n"
         "xor %1, %0\n"
         "sub %0, %1, %0\n"
@@ -294,7 +277,7 @@ bool in_view(Vec3 point, Vec3 *projected)
     }
     return (proj.z > near && proj.z < far)
         && (iabs(proj.x) <= proj.z + 0*proj.z/4)
-        && (iabs(proj.y) <= proj.z + 3*proj.z/4);
+        && (iabs(proj.y) <= proj.z + 0*proj.z/4);
 }
 
 void draw_axes(PrimBuf *pb)
@@ -378,11 +361,13 @@ void draw_patch(PrimBuf *pb, Vec3 pos, int sheer, int spread)
 
 Vec3 camera = {0};
 
+extern int frame;
+
 int _start()
 {
     init_pad();
     clock_init();
-    
+
     GPU_GP1 = gp1_resetGPU();
 	GPU_GP1 = gp1_dmaRequestMode(GP1_DREQ_GP0_WRITE);
     GPU_GP1 = gp1_dispBlank(false);
@@ -423,6 +408,7 @@ int _start()
     DMA_DPCR |= DMA_DPCR_ENABLE << (DMA_GPU * 4);
 
     PrimBuf *pb = gpu_init();
+
     uint t = 0;
     int angle_x = ONE/25;
     int angle_y = 0;
@@ -431,6 +417,7 @@ int _start()
     
     camera.y = -2.5 * ONE;
     camera.z = -2.5 * ONE;
+    int last_frame = frame;
     for (;;) {
         printf("\nFRAME %05d: ", t);
         uint32_t *prim;
@@ -468,22 +455,25 @@ int _start()
                 camera.x += move_increment;
             }
         } else {
+            int amount = 10 * (frame - last_frame);
+
             // camera controls
             if (pad & PAD_UP) {
-                angle_x -= 10;
+                angle_x -= amount;
             } else if (pad & PAD_DOWN) {
-                angle_x += 10;
+                angle_x += amount;
             }
 
             if (angle_x < 0) angle_x = 0;
             if (angle_x > ONE/4) angle_x = ONE/4;
             
             if (pad & PAD_LEFT) {
-                angle_y += 10;
+                angle_y += amount;
             } else if (pad & PAD_RIGHT) {
-                angle_y -= 10;
+                angle_y -= amount;
             }
         }
+        last_frame = frame;
 
         Mat cam_trans = {
             { ONE,    0,      0,
@@ -516,18 +506,20 @@ int _start()
                                   cam_trans));
         
         // drawing
-        clock_begin();
-        draw_patch(pb, pos, icos(t * 26) / 8, icos(t * 17) * 7);
-        clock_print(clock_end());
+        //clock_begin();
+        //draw_patch(pb, pos, icos(t * 26) / 8, icos(t * 17) * 7);
+        //clock_print(clock_end());
         
-        int r = 7*ONE;
-        /*for (int z = -r; z <= r; z += 2*ONE) {
-            for (int x = -r; x <= r; x += 2*(ONE - 256)) {
+        clock_begin();
+        int r = 17*ONE;
+        for (int z = -r; z <= r; z += 2*ONE) {
+            for (int x = -r; x <= r; x += 2*ONE) {
                 draw_patch(pb, (Vec3) { x, 0, z }, isin(t * 26) / 8, icos(t * 17) * 7);
             }
-        }*/
+        }
+        //clock_print(clock_end());
         
-        clock_begin();
+        //clock_begin();
         if (~pad & 1)
             draw_axes(pb);
         clock_print(clock_end());

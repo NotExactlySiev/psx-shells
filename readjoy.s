@@ -71,16 +71,34 @@ $wait:
     jr      $ra
     nop
 
-.globl printf
-.type printf,@function
+.macro sysc code, label
+    .globl \label
+    .type \label,@function
+    \label:
+        addiu      $a0, $zero, \code
+        syscall    0
+        jr         $ra
+        nop
+.endm
 
-printf:
-    li      $t1, 0x3F
-    nop
-    j       0x00A0
-    nop
-    jr      $ra
-    nop
+.macro kern table, code, label
+    .globl \label
+    .type \label,@function
+    \label:
+        addiu      $t2, $zero, \table
+        jr         $t2
+        addiu      $t1, $zero, \code
+.endm
+
+sysc 1, EnterCriticalSection
+sysc 2, ExitCriticalSection
+kern 0xA0, 0x3F, printf
+kern 0xB0, 0x04, enable_timer_irq
+kern 0xB0, 0x05, disable_timer_irq
+kern 0xB0, 0x08, OpenEvent
+kern 0xB0, 0x09, CloseEvent
+kern 0xB0, 0x0C, EnableEvent
+kern 0xB0, 0x0D, DisableEvent
 
 
 .globl putchar
@@ -117,26 +135,6 @@ A:
 
 .globl GP0com
 .type GP0com,@function
-
-GP0com:
-    sw      $a0, GP0
-    jr      $ra
-    nop
-
-.globl GP1com
-.type GP1com,@function
-
-GP1com:
-    sw      $a0, GP1
-    jr      $ra
-    nop
-
-.globl sqrt2
-.type sqrt2,@function
-sqrt2:
-    jr      $ra
-    nop
-
 
 .globl vec3_cross
 .type vec3_cross,@function

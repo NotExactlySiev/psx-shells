@@ -1,5 +1,4 @@
-#include <stdint.h>
-
+#include "common.h"
 #include "registers.h"
 #include "gpucmd.h"
 
@@ -10,7 +9,8 @@
 
 void clock_print(Time t)
 {
-    printf("%d : %d\t", t.hblank,  t.clock);
+    //int ratio = fixed_div(t.clock, t.hblank);
+    printf("\t%d : %d", t.hblank,  t.clock);
 }
 
 void clock_init(void)
