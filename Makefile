@@ -1,10 +1,9 @@
 TGT := mipsel-unknown-linux-gnu
 GCC	:= $(TGT)-gcc -g -O3 -fno-pic -mno-abicalls -mfp32 -mips1 -march=mips1 -nolibc -nostdlib
-AS  := $(TGT)-as
 LD  := $(TGT)-ld
 
-OBJS	:= main.o clock.o gpu.o readjoy.o trig.o string.o
-
+OBJS	:= main.o readjoy.o string.o
+# math.o clock.o gpu.o input.o
 all:    main.exe
 
 .PHONY: all

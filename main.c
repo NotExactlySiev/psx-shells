@@ -1,79 +1,18 @@
 #include <stdint.h>
 
 #include "common.h"
-#include "registers.h"
 #include "gpucmd.h"
-#include "clock.h"
-#include "gpu.h"
-
-unsigned int _seed = 2891583007UL;
-
-int rand_r(unsigned int *seed) {
-    unsigned int a = *seed;
-    a ^= 61;
-    a ^= a >> 16;
-    a += a << 3;
-    a ^= a >> 4;
-    a *= 668265263UL;
-    a ^= a >> 15;
-    a *= 3148259783UL;
-    *seed = a;
-    return (int) a;
-}
 
 
-unsigned int rnext(void)
-{
-    return rand_r(&_seed);
-}
-
-typedef struct {
-    int x;
-    int y;
-    int z;
-} Vec3;
-
-Vec3 vec3_add(Vec3 a, Vec3 b)
-{
-    return (Vec3) {
-        .x = a.x + b.x,
-        .y = a.y + b.y,
-        .z = a.z + b.z,
-    };
-}
-
-Vec3 vec3_sub(Vec3 a, Vec3 b)
-{
-    Vec3 ret = {
-        .x = a.x - b.x,
-        .y = a.y - b.y,
-        .z = a.z - b.z,
-    };
-
-    return ret;
-}
-
-Vec3 vec3_divide(Vec3 a, int s)
-{
-    Vec3 ret = {
-        .x = fixed_div(a.x, s),
-        .y = fixed_div(a.y, s),
-        .z = fixed_div(a.z, s),
-    };
-
-    return ret;
-}
-
-Vec3 vec3_scale(Vec3 a, int s)
-{
-    Vec3 ret = {
-        .x = fixed_mul(a.x, s),
-        .y = fixed_mul(a.y, s),
-        .z = fixed_mul(a.z, s),
-    };
-
-    return ret;
-}
+// FIXME: lto doesn't work so we're doing this for now :P
+//#include "math.h"
+//#include "clock.h"
+//#include "gpu.h"
+//#include "input.h"
+#include "math.c"
+#include "clock.c"
+#include "gpu.c"
+#include "input.c"
 
 #define DEC(x)  (((((x) * 10)/8 * 10)/8 * 10)/ 8 * 10)/ 8
 
@@ -185,43 +124,6 @@ int vec3_dot(Vec3* a, Vec3* b)
 }
 
 #define NLAYERS 16
-
-void init_pad()
-{
-    SIO_CTRL(0) = SIO_CTRL_TX_ENABLE;
-    SIO_MODE(0) = SIO_MODE_BAUD_DIV1 | SIO_MODE_DATA_8;
-}
-
-uint16_t read_pad()
-{
-    SIO_CTRL(0) = SIO_CTRL_TX_ENABLE | SIO_CTRL_DTR | SIO_CTRL_DSR_IRQ_ENABLE;
-    for (int i = 0; i < 300; i++)
-        asm volatile("nop");
-
-    const uint8_t msg[5] = { 0x01, 0x42, 0x00, 0x00, 0x00 };
-    uint8_t resp[5] = {0};
-    for (int i = 0; i < 5; i++) {
-        SIO_DATA(0) = msg[i];
-        while ((SIO_STAT(0) & SIO_STAT_RX_NOT_EMPTY) == 0);
-        resp[i] = SIO_DATA(0);
-    }
-
-    SIO_CTRL(0) = SIO_CTRL_TX_ENABLE | SIO_CTRL_ACKNOWLEDGE;
-    return ~(*(uint16_t*)&resp[3]);
-}
-
-typedef enum {
-    PAD_UP      =   1 << 4,
-    PAD_RIGHT   =   1 << 5,
-    PAD_DOWN    =   1 << 6,
-    PAD_LEFT    =   1 << 7,
-
-    PAD_TRI     =   1 << 12,
-    PAD_CIRCLE  =   1 << 13,
-    PAD_CROSS   =   1 << 14,
-    PAD_SQUARE  =   1 << 15,
-} Button;
-
 
 
 void draw_quad(PrimBuf *pb, Vec3 verts[4], int layer, uint16_t tpage, uint16_t clut)
@@ -506,20 +408,17 @@ int _start()
                                   cam_trans));
         
         // drawing
-        //clock_begin();
+        clock_begin();
         //draw_patch(pb, pos, icos(t * 26) / 8, icos(t * 17) * 7);
         //clock_print(clock_end());
         
-        clock_begin();
-        int r = 17*ONE;
+        int r = 31*ONE;
         for (int z = -r; z <= r; z += 2*ONE) {
             for (int x = -r; x <= r; x += 2*ONE) {
                 draw_patch(pb, (Vec3) { x, 0, z }, isin(t * 26) / 8, icos(t * 17) * 7);
             }
         }
-        //clock_print(clock_end());
         
-        //clock_begin();
         if (~pad & 1)
             draw_axes(pb);
         clock_print(clock_end());
