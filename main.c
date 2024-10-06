@@ -3,8 +3,13 @@
 #include "registers.h"
 #include "gpucmd.h"
 
+#include "clock.h"
+#include "gpu.h"
+
 #define PREC    12
 #define ONE     (1 << PREC)
+
+void printf(char* fmt, ...);
 
 static int fixed_div(int a, int b)
 {
@@ -160,8 +165,6 @@ void set_translation_vector(Vec3* v);
 
 void perspective_transform(Vec3* out, Vec3* vert);
 
-void printf(char* fmt, ...);
-
 #define VPRINT(v)   printf(#v "\t= ", (v)); vec3_print(v);
 #define MPRINT(m)   printf(#m "\t=\n", (m)); mat_print(m); printf("\n", m);
 
@@ -199,107 +202,7 @@ int vec3_dot(Vec3* a, Vec3* b)
     return (a->x*b->x + a->y*b->y + a->z*b->z) >> 12;
 }
 
-void draw_quad(Vec3 verts[4], uint16_t tpage, uint16_t clut)
-{
-    uint u = 64;
-    uint v = 64;
-    GPU_GP0 = gp0_rgb(128, 128, 128) | gp0_quad(true, false);
-    GPU_GP0 = gp0_xy(verts[0].x, verts[0].y);
-    GPU_GP0 = gp0_uv(0, 0, clut);
-            
-    GPU_GP0 = gp0_xy(verts[1].x, verts[1].y);
-    GPU_GP0 = gp0_uv(u, 0, tpage);
-            
-    GPU_GP0 = gp0_xy(verts[2].x, verts[2].y);
-    GPU_GP0 = gp0_uv(0, v, 0);
-            
-    GPU_GP0 = gp0_xy(verts[3].x, verts[3].y);
-    GPU_GP0 = gp0_uv(u, v, 0);
-}
-
 #define NLAYERS 16
-
-void draw_line(Vec3 a, Vec3 b, uint32_t color)
-{
-    GPU_GP0 = color | gp0_line(false, false);
-    GPU_GP0 = gp0_xy(a.x, a.y);
-    GPU_GP0 = gp0_xy(b.x, b.y);
-}
-
-Mat projection;
-
-void draw_axes(void)
-{
-    const Vec3 verts[4] = {
-        { 0,    0,      0   },
-        { ONE,  0,      0   },
-        { 0,    ONE,    0   },
-        { 0,    0,      ONE },
-    };
-
-    Vec3 proj[4];
-
-    for (int i = 0; i < 4; i++) {
-        proj[i] = vec3_multiply_matrix(verts[i], &projection);
-        proj[i].x = (256 * proj[i].x) / proj[i].z;
-        proj[i].y = (320 * proj[i].y) / proj[i].z;
-    }
-
-    draw_line(proj[0], proj[1], gp0_rgb(255, 0, 0));
-    draw_line(proj[0], proj[2], gp0_rgb(0, 255, 0));
-    draw_line(proj[0], proj[3], gp0_rgb(0, 0, 255));
-}
-
-// TODO: separate X and Z sheer
-void draw_patch(Vec3 pos, int sheer, int spread)
-{
-    const Vec3 verts[4] = {
-        { -ONE, 0,  ONE },
-        {  ONE, 0,  ONE },
-        { -ONE, 0, -ONE },
-        {  ONE, 0, -ONE },
-    };
-    // TODO: this part might not have to be repeated for every patch
-    //Vec3 warped[NLAYERS][4];
-    Vec3 quads[NLAYERS][4];
-    for (int layer = 0; layer < NLAYERS; layer++) {
-        Vec3 offset = { 0, -50 * layer, 0 };
-        for (int i = 0; i < 4; i++) {
-            quads[layer][i] = vec3_add(verts[i], offset);
-            int s = ONE + layer * spread / ONE;
-            quads[layer][i].x = quads[layer][i].x * s / ONE;
-            quads[layer][i].z = quads[layer][i].z * s / ONE;
-        }
-    }
-
-    Mat modelview = {
-        { ONE, -sheer, 0,
-          0, ONE, 0,
-          0, -sheer, ONE },
-        { pos.x, pos.y, pos.z },
-    };
-
-    Vec3 final[NLAYERS][4];
-    for (int layer = 0; layer < NLAYERS; layer++) {
-        for (int i = 0; i < 4; i++) {
-            // project
-            Vec3 quad = vec3_multiply_matrix(quads[layer][i], &modelview);
-            Vec3 proj = vec3_multiply_matrix(quad, &projection);
-            
-            // final step
-            proj.x = (256 * proj.x) / proj.z;
-            proj.y = (320 * proj.y) / proj.z;
-            final[layer][i] = proj;
-        }
-    }
-    
-    for (int layer = 0; layer < NLAYERS; layer++) {
-        draw_quad(final[layer], 
-            gp0_page(768 / 64, 0, GP0_BLEND_ADD, GP0_COLOR_4BPP),
-            gp0_clut(768 / 16, 256 + layer)
-        );
-    }
-}
 
 void init_pad()
 {
@@ -337,31 +240,157 @@ typedef enum {
     PAD_SQUARE  =   1 << 15,
 } Button;
 
+
+
+void draw_quad(PrimBuf *pb, Vec3 verts[4], int layer, uint16_t tpage, uint16_t clut)
+{
+    uint u = 64;
+    uint v = 64;
+    uint32_t *prim = next_prim(pb, 9, layer);
+    *prim++ = gp0_rgb(128, 128, 128) | gp0_quad(true, false);
+    *prim++ = gp0_xy(verts[0].x, verts[0].y);
+    *prim++ = gp0_uv(0, 0, clut);    
+    *prim++ = gp0_xy(verts[1].x, verts[1].y);
+    *prim++ = gp0_uv(u, 0, tpage);
+    *prim++ = gp0_xy(verts[2].x, verts[2].y);
+    *prim++ = gp0_uv(0, v, 0);
+    *prim++ = gp0_xy(verts[3].x, verts[3].y);
+    *prim++ = gp0_uv(u, v, 0);
+}
+
+void draw_line(PrimBuf *pb, Vec3 a, Vec3 b, uint32_t color)
+{
+    uint32_t *prim = next_prim(pb, 3, 1);
+    prim[0] = color | gp0_line(false, false);
+    prim[1] = gp0_xy(a.x, a.y);
+    prim[2] = gp0_xy(b.x, b.y);
+}
+
+Mat projection;
+
+int near = 2*ONE;
+int far = 20*ONE;
+
+int iabs(int x)
+{
+    asm("sra %0,%1,31\n"
+        "xor %1, %0\n"
+        "sub %0, %1, %0\n"
+        : "=r"(x)
+        : "r"(x)
+    );
+    return x;
+}
+
+// is a point in view when projected to camera space?
+// can also output the projection to be reused
+bool in_view(Vec3 point, Vec3 *projected)
+{
+    Vec3 proj = vec3_multiply_matrix(point, &projection);
+    if (projected != NULL) {
+        *projected = proj;
+        projected->x = ((SCREEN_H / 2) * projected->x) / projected->z;
+        projected->y = ((SCREEN_W / 2) * projected->y) / projected->z;
+    }
+    return (proj.z > near && proj.z < far)
+        && (iabs(proj.x) <= proj.z + 0*proj.z/4)
+        && (iabs(proj.y) <= proj.z + 3*proj.z/4);
+}
+
+void draw_axes(PrimBuf *pb)
+{
+    const Vec3 verts[4] = {
+        { 0,    0,      0   },
+        { ONE,  0,      0   },
+        { 0,    ONE,    0   },
+        { 0,    0,      ONE },
+    };
+    
+    Vec3 proj[4];
+
+    if (!in_view(verts[0], &proj[0]))
+        return;
+    
+    for (int i = 1; i < 4; i++) {
+        proj[i] = vec3_multiply_matrix(verts[i], &projection);
+        proj[i].x = ((SCREEN_H / 2) * proj[i].x) / proj[i].z;
+        proj[i].y = ((SCREEN_W / 2) * proj[i].y) / proj[i].z;
+    }
+
+    draw_line(pb, proj[0], proj[1], gp0_rgb(255, 0, 0));
+    draw_line(pb, proj[0], proj[2], gp0_rgb(0, 255, 0));
+    draw_line(pb, proj[0], proj[3], gp0_rgb(0, 0, 255));
+}
+
+// TODO: separate X and Z sheer
+void draw_patch(PrimBuf *pb, Vec3 pos, int sheer, int spread)
+{
+    if (!in_view(pos, NULL)) {
+        return;
+    }
+    
+    const Vec3 verts[4] = {
+        { -ONE, 0,  ONE },
+        {  ONE, 0,  ONE },
+        { -ONE, 0, -ONE },
+        {  ONE, 0, -ONE },
+    };
+
+    Vec3 quads[NLAYERS][4];
+    for (int layer = 0; layer < NLAYERS; layer++) {
+        Vec3 offset = { 0, -50 * layer, 0 };
+        for (int i = 0; i < 4; i++) {
+            quads[layer][i] = vec3_add(verts[i], offset);
+            int s = ONE + layer * spread / ONE;
+            quads[layer][i].x = quads[layer][i].x * s / ONE;
+            quads[layer][i].z = quads[layer][i].z * s / ONE;
+        }
+    }
+
+    Mat modelview = {
+        { ONE, -sheer, 0,
+          0, ONE, 0,
+          0, -sheer, ONE },
+        { pos.x, pos.y, pos.z },
+    };
+
+    Mat matr = mat_multiply(projection, modelview);
+
+    Vec3 final[NLAYERS][4];
+    for (int layer = 0; layer < NLAYERS; layer++) {
+        for (int i = 0; i < 4; i++) {
+            // project
+            Vec3 proj = vec3_multiply_matrix(quads[layer][i], &matr);
+            // final step
+            proj.x = ((SCREEN_H / 2) * proj.x) / proj.z;
+            proj.y = ((SCREEN_W / 2) * proj.y) / proj.z;
+            final[layer][i] = proj;
+        }
+    }
+    
+    for (int layer = 0; layer < NLAYERS; layer++) {
+        draw_quad(pb, final[layer], 20 - layer,
+            gp0_page(768 / 64, 0, GP0_BLEND_ADD, GP0_COLOR_4BPP),
+            gp0_clut(768 / 16, 256 + layer)
+        );
+    }
+}
+
+Vec3 camera = {0};
+
 int _start()
 {
-    unsigned int r;
-    int i, j;
-    
-    r = 432143;
-
-    GPU_GP1 = gp1_resetGPU();
     init_pad();
-
-    // enable display
+    clock_init();
+    
+    GPU_GP1 = gp1_resetGPU();
+	GPU_GP1 = gp1_dmaRequestMode(GP1_DREQ_GP0_WRITE);
     GPU_GP1 = gp1_dispBlank(false);
-    GPU_GP1 = gp1_fbMode(GP1_HRES_640, GP1_VRES_512, GP1_MODE_NTSC, true, GP1_COLOR_16BPP);
+    GPU_GP1 = gp1_fbMode(GP1_HRES_256, GP1_VRES_256, GP1_MODE_NTSC, false, GP1_COLOR_16BPP);
     GPU_GP0 = gp0_fbMask(false, false);
     GPU_GP0 = gp0_fbOffset1(0, 0);
     GPU_GP0 = gp0_fbOffset2(1023, 511);
-    GPU_GP0 = gp0_fbOrigin(320, 256);
-
-    GPU_GP0 = gp0_vramWrite();
-    GPU_GP0 = gp0_xy(768, 0);
-    GPU_GP0 = gp0_xy(128, 256);
-
-    for (int i = 0; i < 256*128/2; i++) {
-        GPU_GP0 = (rnext());
-    }
+    GPU_GP0 = gp0_fbOrigin(SCREEN_W / 2, SCREEN_H / 2);
 
     inline uint16_t green(uint8_t val) {
         return (val & 0x1F) << 5;
@@ -381,22 +410,30 @@ int _start()
         }
     }
 
-    GPU_GP0 = gp0_fbOffset1(0, 0);
-    GPU_GP0 = gp0_fbOffset2(639, 511);
+    GPU_GP0 = gp0_vramWrite();
+    GPU_GP0 = gp0_xy(768, 0);
+    GPU_GP0 = gp0_xy(128, 256);
 
+    for (int i = 0; i < 256*128/2; i++) {
+        GPU_GP0 = (rnext());
+    }
+
+    gpu_sync();
+    
+    DMA_DPCR |= DMA_DPCR_ENABLE << (DMA_GPU * 4);
+
+    PrimBuf *pb = gpu_init();
     uint t = 0;
-    int angle_x = ONE/16;
+    int angle_x = ONE/25;
     int angle_y = 0;
     uint16_t pad = 0;
-    Vec3 pos = { -2*ONE, 0, -2*ONE };
+    Vec3 pos = { 0, 0, 0 };
+    
+    camera.y = -2.5 * ONE;
+    camera.z = -2.5 * ONE;
     for (;;) {
-        uint32_t idle = 0;
-        // wait for vblank interrupt
-        while (!(IRQ_STAT & IRQ_GPU))
-            idle += 1;
-        IRQ_STAT = 0;
-        printf("IDLE: %d\t", idle);
-        t += 1;
+        printf("\nFRAME %05d: ", t);
+        uint32_t *prim;
 
         uint16_t pad_new = read_pad();
         uint16_t pad_edge = pad ^ pad_new;
@@ -404,7 +441,7 @@ int _start()
         pad = pad_new;
 
         if (pad & PAD_CROSS) {
-            const int move_increment = ONE/16;
+            const int move_increment = ONE/2;
             // move patch around
             if (pressed & PAD_UP) {
                 pos.z += move_increment;
@@ -418,30 +455,46 @@ int _start()
                 pos.x += move_increment;
             }
         } else if (pad & PAD_CIRCLE) {
-
+            const int move_increment = ONE/8;
+            if (pressed & PAD_UP) {
+                camera.z += move_increment;
+            } else if (pressed & PAD_DOWN) {
+                camera.z -= move_increment;
+            }
+            
+            if (pressed & PAD_LEFT) {
+                camera.x -= move_increment;
+            } else if (pressed & PAD_RIGHT) {
+                camera.x += move_increment;
+            }
         } else {
             // camera controls
             if (pad & PAD_UP) {
-                angle_x += 10;
-            } else if (pad & PAD_DOWN) {
                 angle_x -= 10;
+            } else if (pad & PAD_DOWN) {
+                angle_x += 10;
             }
 
             if (angle_x < 0) angle_x = 0;
             if (angle_x > ONE/4) angle_x = ONE/4;
             
             if (pad & PAD_LEFT) {
-                angle_y -= 10;
-            } else if (pad & PAD_RIGHT) {
                 angle_y += 10;
+            } else if (pad & PAD_RIGHT) {
+                angle_y -= 10;
             }
         }
+
+        Mat cam_trans = {
+            { ONE,    0,      0,
+              0,      ONE,    0,
+              0,      0,      ONE },
+            { -camera.x, -camera.y, -camera.z }
+        };
         
-        //int angle = (ONE / 4) / 5;
-        //angle_x = (ONE + isin(2 * t)) / 45 + ONE/64;
         int sint = isin(angle_x);
         int cost = icos(angle_x);
-        Mat matr = {
+        Mat cam_rotx = {
             { ONE,    0,          0,
               0,      cost,     -sint,
               0,      sint,    cost, },
@@ -450,31 +503,38 @@ int _start()
 
         sint = isin(angle_y);
         cost = icos(angle_y);
-
         // this is part of the projection matrix
-        Mat matr0 = {
+        Mat cam_roty = {
             { cost,       0,      sint,
               0,          ONE,    0,
               -sint,      0,      cost },
             { 0, 0, 0 }
         };
 
-        int ar = fixed_div(640 * ONE, 512 * ONE);
+        projection = mat_multiply(cam_rotx,
+                     mat_multiply(cam_roty, 
+                                  cam_trans));
+        
+        // drawing
+        clock_begin();
+        draw_patch(pb, pos, icos(t * 26) / 8, icos(t * 17) * 7);
+        clock_print(clock_end());
+        
+        int r = 7*ONE;
+        /*for (int z = -r; z <= r; z += 2*ONE) {
+            for (int x = -r; x <= r; x += 2*(ONE - 256)) {
+                draw_patch(pb, (Vec3) { x, 0, z }, isin(t * 26) / 8, icos(t * 17) * 7);
+            }
+        }*/
+        
+        clock_begin();
+        if (~pad & 1)
+            draw_axes(pb);
+        clock_print(clock_end());
 
-        Mat zstuff = {
-            { ONE,    0,      0,
-              0,      ONE,    0,
-              0,      0,      0.4 * ONE },
-            { 0, 0, 2.5 * ONE }
-        };
+        // send
+        pb = swap_buffer();
 
-        projection = mat_multiply(mat_multiply(zstuff, matr), matr0);
-
-        GPU_GP0 = gp0_rgb(64, 64, 64) | gp0_vramFill();
-        GPU_GP0 = gp0_xy(0, 0);
-        GPU_GP0 = gp0_xy(640, 511);
-
-        draw_patch(pos, icos(t * 26) / 8, icos(t * 17) * 7);
-        draw_axes();
+        t += 1;
     }
 }

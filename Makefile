@@ -3,7 +3,7 @@ GCC	:= $(TGT)-gcc -g -O3 -fno-pic -mno-abicalls -mfp32 -mips1 -march=mips1 -noli
 AS  := $(TGT)-as
 LD  := $(TGT)-ld
 
-OBJS	:= main.o readjoy.o trig.o string.o
+OBJS	:= main.o clock.o gpu.o readjoy.o trig.o string.o
 
 all:    main.exe
 
