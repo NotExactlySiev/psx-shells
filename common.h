@@ -1,0 +1,21 @@
+#pragma once
+#include <stdint.h>
+#include "registers.h"
+
+#define PREC    12
+#define ONE     (1 << PREC)
+
+void printf(char* fmt, ...);
+
+static int fixed_div(int a, int b)
+{
+    return (a * ONE) / b;
+}
+
+static int fixed_mul(int a, int b)
+{
+    return a * b / ONE;
+}
+
+typedef unsigned short  ushort;
+typedef unsigned int    uint;

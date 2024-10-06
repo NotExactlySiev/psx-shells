@@ -1,5 +1,5 @@
 TGT := mipsel-unknown-linux-gnu
-GCC	:= $(TGT)-gcc -g -O3 -fno-pic -mno-abicalls -mfp32 -mips1 -march=mips1 -nolibc -nostdlib
+GCC	:= $(TGT)-gcc -O3 -fno-pic -mno-abicalls -mfp32 -mips1 -march=mips1 -nolibc -nostdlib
 LD  := $(TGT)-ld
 
 OBJS	:= main.o readjoy.o string.o

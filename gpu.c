@@ -40,7 +40,7 @@ void disable_vblank_event(int event)
     ExitCriticalSection();
 }
 
-int frame = 0;
+volatile int frame = 0;
 void vsync_handler(void)
 {
     frame++;

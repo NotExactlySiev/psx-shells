@@ -123,23 +123,18 @@ int vec3_dot(Vec3* a, Vec3* b)
     return (a->x*b->x + a->y*b->y + a->z*b->z) >> 12;
 }
 
-#define NLAYERS 16
-
-
-void draw_quad(PrimBuf *pb, Vec3 verts[4], int layer, uint16_t tpage, uint16_t clut)
+void draw_quad(PrimBuf *pb, Vec3 verts[4], int layer, uint16_t tpage, uint16_t clut, uint u0, uint v0, uint u1, uint v1)
 {
-    uint u = 64;
-    uint v = 64;
     uint32_t *prim = next_prim(pb, 9, layer);
     *prim++ = gp0_rgb(128, 128, 128) | gp0_quad(true, false);
     *prim++ = gp0_xy(verts[0].x, verts[0].y);
-    *prim++ = gp0_uv(0, 0, clut);    
+    *prim++ = gp0_uv(u0, v0, clut);    
     *prim++ = gp0_xy(verts[1].x, verts[1].y);
-    *prim++ = gp0_uv(u, 0, tpage);
+    *prim++ = gp0_uv(u1, v0, tpage);
     *prim++ = gp0_xy(verts[2].x, verts[2].y);
-    *prim++ = gp0_uv(0, v, 0);
+    *prim++ = gp0_uv(u0, v1, 0);
     *prim++ = gp0_xy(verts[3].x, verts[3].y);
-    *prim++ = gp0_uv(u, v, 0);
+    *prim++ = gp0_uv(u1, v1, 0);
 }
 
 void draw_line(PrimBuf *pb, Vec3 a, Vec3 b, uint32_t color)
@@ -150,6 +145,7 @@ void draw_line(PrimBuf *pb, Vec3 a, Vec3 b, uint32_t color)
     prim[2] = gp0_xy(b.x, b.y);
 }
 
+Vec3 camera = {0};
 Mat projection;
 
 int near = 2*ONE;
@@ -207,18 +203,50 @@ void draw_axes(PrimBuf *pb)
     draw_line(pb, proj[0], proj[3], gp0_rgb(0, 0, 255));
 }
 
+#define NLAYERS 16
+
+// break them down into smaller chunks if they're closer, and frustum cull those
+// one by one. the fucntion that draws a chunk should take in u,v
 // TODO: separate X and Z sheer
-void draw_patch(PrimBuf *pb, Vec3 pos, int sheer, int spread)
+// FIXME: l >= 7 breaks this
+void draw_patch(PrimBuf *pb, Vec3 pos, uint l, int sheer, int spread,
+    uint u0, uint v0, uint u1, uint v1)
 {
+    int len = (ONE/4) * (1 << l);
+    // at first let's break down ALL of them
+    if (l > 0) {
+        Vec3 camera_xz = { camera.x, 0, camera.z };
+        uint64_t distance2 = vec3_mag2(vec3_sub(pos, camera_xz));
+        uint64_t threshhold = (ONE/2) * (1 << (l));
+        uint64_t threshhold2 = threshhold * threshhold / ONE;
+        
+        if (distance2 < threshhold2) {
+            // TODO: do the transformation of points shared between these four
+            //       instances right here, and pass them down to avoid repeat
+            // TODO: pass a phase modified shee and spread down to simulate wind
+            draw_patch(pb, vec3_add(pos, (Vec3) { -len/2, 0, -len/2 }), l - 1, sheer, spread,
+                u0,         v0,         (u0+u1)/2,  (v0+v1)/2);
+            draw_patch(pb, vec3_add(pos, (Vec3) {  len/2, 0, -len/2 }), l - 1, sheer, spread,
+                (u0+u1)/2,  v0,         u1,         (v0+v1)/2);
+            draw_patch(pb, vec3_add(pos, (Vec3) { -len/2, 0,  len/2 }), l - 1, sheer, spread,
+                u0,         (v0+v1)/2,  (u0+u1)/2,  v1);
+            draw_patch(pb, vec3_add(pos, (Vec3) {  len/2, 0,  len/2 }), l - 1, sheer, spread,
+                (u0+u1)/2,  (v0+v1)/2,  u1,         v1);
+            return;
+        }
+    }
+
     if (!in_view(pos, NULL)) {
         return;
     }
     
+    // 0 is 1/4 units (32 * 32 texels)
+    // each level is double
     const Vec3 verts[4] = {
-        { -ONE, 0,  ONE },
-        {  ONE, 0,  ONE },
-        { -ONE, 0, -ONE },
-        {  ONE, 0, -ONE },
+        { -len, 0, -len },
+        {  len, 0, -len },
+        { -len, 0,  len },
+        {  len, 0,  len },
     };
 
     Vec3 quads[NLAYERS][4];
@@ -254,16 +282,20 @@ void draw_patch(PrimBuf *pb, Vec3 pos, int sheer, int spread)
     }
     
     for (int layer = 0; layer < NLAYERS; layer++) {
-        draw_quad(pb, final[layer], 20 - layer,
+        /*draw_quad(pb, final[layer], 20 - layer,
             gp0_page(768 / 64, 0, GP0_BLEND_ADD, GP0_COLOR_4BPP),
             gp0_clut(768 / 16, 256 + layer)
+        );*/
+        draw_quad(pb, final[layer], 20 - layer,
+            gp0_page(768 / 64, 0, GP0_BLEND_ADD, GP0_COLOR_4BPP),
+            gp0_clut(768 / 16, 256 + layer),
+            u0, v0, u1-1, v1-1
+            //0, 0, 63, 63
         );
     }
 }
 
-Vec3 camera = {0};
-
-extern int frame;
+extern volatile int frame;
 
 int _start()
 {
@@ -311,17 +343,20 @@ int _start()
 
     PrimBuf *pb = gpu_init();
 
-    uint t = 0;
     int angle_x = ONE/25;
     int angle_y = 0;
     uint16_t pad = 0;
     Vec3 pos = { 0, 0, 0 };
     
     camera.y = -2.5 * ONE;
-    camera.z = -2.5 * ONE;
+    camera.z = 0 * ONE;
     int last_frame = frame;
+    uint t = 0;
     for (;;) {
-        printf("\nFRAME %05d: ", t);
+        int delta = frame - last_frame;
+        last_frame = frame;
+        t += delta;
+        printf("\nFRAME %05d (+%d): ", t, delta);
         uint32_t *prim;
 
         uint16_t pad_new = read_pad();
@@ -357,7 +392,7 @@ int _start()
                 camera.x += move_increment;
             }
         } else {
-            int amount = 10 * (frame - last_frame);
+            int amount = 10 * delta;
 
             // camera controls
             if (pad & PAD_UP) {
@@ -375,7 +410,7 @@ int _start()
                 angle_y -= amount;
             }
         }
-        last_frame = frame;
+
 
         Mat cam_trans = {
             { ONE,    0,      0,
@@ -409,23 +444,13 @@ int _start()
         
         // drawing
         clock_begin();
-        //draw_patch(pb, pos, icos(t * 26) / 8, icos(t * 17) * 7);
-        //clock_print(clock_end());
-        
-        int r = 31*ONE;
-        for (int z = -r; z <= r; z += 2*ONE) {
-            for (int x = -r; x <= r; x += 2*ONE) {
-                draw_patch(pb, (Vec3) { x, 0, z }, isin(t * 26) / 8, icos(t * 17) * 7);
-            }
-        }
-        
+        int tex = 1024;
+        draw_patch(pb, pos, 6, icos(t * 26) / 8, icos(t * 17) * 7, 0, 0, tex, tex);
+                
         if (~pad & 1)
             draw_axes(pb);
         clock_print(clock_end());
 
-        // send
         pb = swap_buffer();
-
-        t += 1;
     }
 }
