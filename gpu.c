@@ -2,6 +2,7 @@
 
 #include "registers.h"
 #include "gpucmd.h"
+#include "math.h"
 
 #include "gpu.h"
 

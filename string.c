@@ -158,6 +158,7 @@ char *strcpy(char *restrict dest, const char *restrict src) {
 	return dest;
 }
 
+/*
 char *strncpy(char *restrict dest, const char *restrict src, size_t count) {
 	char *_dest = dest;
 
@@ -168,6 +169,7 @@ char *strncpy(char *restrict dest, const char *restrict src, size_t count) {
 
 	return dest;
 }
+*/
 
 int strcmp(const char *lhs, const char *rhs) {
 	for (;;) {
@@ -278,6 +280,7 @@ char *strncat(char *restrict dest, const char *restrict src, size_t count) {
 	return dest;
 }
 
+/*
 char *strdup(const char *str) {
 	size_t length = strlen(str) + 1;
 	char   *copy  = malloc(length);
@@ -299,6 +302,7 @@ char *strndup(const char *str, size_t count) {
 	memcpy(copy, str, length);
 	return copy;
 }
+*/
 
 /* String tokenizer */
 

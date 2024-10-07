@@ -23,6 +23,7 @@ Vec3 vec3_sub(Vec3 a, Vec3 b);
 Vec3 vec3_divide(Vec3 a, int s);
 Vec3 vec3_scale(Vec3 a, int s);
 int vec3_dot(Vec3 a, Vec3 b);
+uint64_t vec3_mag2(Vec3 a);
 void vec3_print(Vec3 a);
 Mat mat_multiply(Mat a, Mat b);
 void mat_print(Mat* m);

@@ -1,6 +1,8 @@
 #include "common.h"
 #include "gpu.h"
 #include "math.h"
+#include "grass.h"
+
 
 #define NLAYERS 16
 
@@ -18,41 +20,10 @@ static void draw_quad(PrimBuf *pb, Vec3 verts[4], int layer, uint16_t tpage, uin
     *prim++ = gp0_uv(u1, v1, 0);
 }
 
-// break them down into smaller chunks if they're closer, and frustum cull those
-// one by one. the fucntion that draws a chunk should take in u,v
-// TODO: separate X and Z sheer
-// FIXME: l >= 7 breaks this
-void draw_patch(PrimBuf *pb, Vec3 pos, uint l, int sheer, int spread,
+// draw_patch
+static void draw_patch(PrimBuf *pb, Vec3 pos, uint len, int sheer, int spread,
     uint u0, uint v0, uint u1, uint v1)
 {
-    int len = (ONE/4) * (1 << l);
-    // at first let's break down ALL of them
-    if (l > 0) {
-        Vec3 camera_xz = { camera.x, 0, camera.z };
-        uint64_t distance2 = vec3_mag2(vec3_sub(pos, camera_xz));
-        uint64_t threshhold = (ONE) * (1 << (l));
-        uint64_t threshhold2 = threshhold * threshhold / ONE;
-        
-        if (distance2 < threshhold2) {
-            // TODO: do the transformation of points shared between these four
-            //       instances right here, and pass them down to avoid repeat
-            // TODO: pass a phase modified shee and spread down to simulate wind
-            draw_patch(pb, vec3_add(pos, (Vec3) { -len/2, 0, -len/2 }), l - 1, sheer, spread,
-                u0,         v0,         (u0+u1)/2,  (v0+v1)/2);
-            draw_patch(pb, vec3_add(pos, (Vec3) {  len/2, 0, -len/2 }), l - 1, sheer, spread,
-                (u0+u1)/2,  v0,         u1,         (v0+v1)/2);
-            draw_patch(pb, vec3_add(pos, (Vec3) { -len/2, 0,  len/2 }), l - 1, sheer, spread,
-                u0,         (v0+v1)/2,  (u0+u1)/2,  v1);
-            draw_patch(pb, vec3_add(pos, (Vec3) {  len/2, 0,  len/2 }), l - 1, sheer, spread,
-                (u0+u1)/2,  (v0+v1)/2,  u1,         v1);
-            return;
-        }
-    }
-
-    if (!in_view(pos, NULL)) {
-        return;
-    }
-
     const Vec3 verts[4] = {
         { -len, 0, -len },
         {  len, 0, -len },
@@ -73,8 +44,8 @@ void draw_patch(PrimBuf *pb, Vec3 pos, uint l, int sheer, int spread,
 
     Mat modelview = {
         {{ ONE, -sheer, 0 },
-        { 0, ONE, 0 },
-        {  0, -sheer, ONE }},
+         { 0,   ONE,    0 },
+         { 0,   -sheer, ONE }},
         { pos.x, pos.y, pos.z },
     };
 
@@ -99,4 +70,42 @@ void draw_patch(PrimBuf *pb, Vec3 pos, uint l, int sheer, int spread,
             u0, v0, u1-1, v1-1
         );
     }
+}
+
+// TODO: separate X and Z sheer
+// FIXME: l >= 7 breaks this, but not in -O3
+// _draw_grass
+void _draw_grass(PrimBuf *pb, Vec3 pos, uint l, int sheer, int spread,
+    uint u0, uint v0, uint u1, uint v1)
+{
+    int len = (ONE/4) * (1 << l);
+    
+    // these are only computed if l > 0 so we don't short circuit. a bit clunky
+    Vec3 camera_xz = { camera.x, 0, camera.z };
+    uint64_t distance2 = vec3_mag2(vec3_sub(pos, camera_xz));
+    uint64_t threshhold = (ONE) * (1 << l);
+    uint64_t threshhold2 = threshhold * threshhold / ONE;
+    if (l > 0 && distance2 < threshhold2) {
+        // subdivide
+        // TODO: do the transformation of points shared between these four
+        //       instances right here, and pass them down to avoid repeat
+        // TODO: pass a phase modified shee and spread down to simulate wind
+        _draw_grass(pb, vec3_add(pos, (Vec3) { -len/2, 0, -len/2 }), l - 1, sheer, spread,   u0,         v0,         (u0+u1)/2,  (v0+v1)/2);
+
+        _draw_grass(pb, vec3_add(pos, (Vec3) {  len/2, 0, -len/2 }), l - 1, sheer, spread,   (u0+u1)/2,  v0,         u1,         (v0+v1)/2);
+
+        _draw_grass(pb, vec3_add(pos, (Vec3) { -len/2, 0,  len/2 }), l - 1, sheer, spread,   u0,         (v0+v1)/2,  (u0+u1)/2,  v1);
+
+        _draw_grass(pb, vec3_add(pos, (Vec3) {  len/2, 0,  len/2 }), l - 1, sheer, spread,   (u0+u1)/2,  (v0+v1)/2,  u1,         v1);
+    } else if (in_view(pos, NULL)) {
+        draw_patch(pb, pos, len, sheer, spread, u0, v0, u1, v1);
+    }
+}
+
+// TODO: l >= 6 breaks this. but not if _draw_grass is called directly from main
+void draw_grass(PrimBuf *pb, Vec3 pos, int sheer, int spread)
+{
+    int level = 5;
+    int tex = 16 << level;
+    _draw_grass(pb, pos, level, sheer, spread, 0, 0, tex, tex);
 }

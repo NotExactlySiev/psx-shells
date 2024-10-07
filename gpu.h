@@ -1,4 +1,6 @@
 #include "common.h"
+#include "math.h"
+#include "gpucmd.h"
 
 #define SCREEN_W    256
 #define SCREEN_H    240

@@ -1,32 +1,26 @@
 #include "common.h"
 #include "gpucmd.h"
 
-// FIXME: lto doesn't work so we're doing this for now :P
-//#include "math.h"
-//#include "clock.h"
-//#include "gpu.h"
-//#include "input.h"
-//#include "grass.h"
-#include "math.c"
-#include "clock.c"
-#include "gpu.c"
-#include "input.c"
-#include "grass.c"
+#include "math.h"
+#include "clock.h"
+#include "gpu.h"
+#include "input.h"
+#include "grass.h"
 
 #define DEC(x)  (((((x) * 10)/8 * 10)/8 * 10)/ 8 * 10)/ 8
 
 void fixed_print(int x)
 {
     if (x >= 0)
-        printf(" %d.%04d", x >> 12, DEC(x & (ONE - 1)));
+        k_printf(" %d.%04d", x >> 12, DEC(x & (ONE - 1)));
     else
-        printf("-%d.%04d", (-x) >> 12, DEC((-x) & (ONE - 1)));
+        k_printf("-%d.%04d", (-x) >> 12, DEC((-x) & (ONE - 1)));
 
-    printf(" [0x%08X] ", x);
+    k_printf(" [0x%08X] ", x);
 }
 
-#define VPRINT(v)   printf(#v "\t= ", (v)); vec3_print(v);
-#define MPRINT(m)   printf(#m "\t=\n", (m)); mat_print(m); printf("\n", m);
+#define VPRINT(v)   k_printf(#v "\t= ", (v)); vec3_print(v);
+#define MPRINT(m)   k_printf(#m "\t=\n", (m)); mat_print(m); k_printf("\n", m);
 
 void draw_line(PrimBuf *pb, Vec3 a, Vec3 b, uint32_t color)
 {
@@ -122,7 +116,7 @@ int _start()
         int delta = frame - last_frame;
         last_frame = frame;
         t += delta;
-        printf("\nFRAME %05d (+%d): ", t, delta);
+        k_printf("\nFRAME %05d (+%d): ", t, delta);
         //uint32_t *prim;
 
         uint16_t pad_new = read_pad();
@@ -210,9 +204,8 @@ int _start()
         
         // drawing
         clock_begin();
-        int tex = 1024;
-        draw_patch(pb, pos, 6, icos(t * 26) / 8, icos(t * 17) * 7, 0, 0, tex, tex);
-                
+        draw_grass(pb, pos, icos(t * 26) / 8, icos(t * 17) * 7);
+
         if (~pad & 1)
             draw_axes(pb);
         clock_print(clock_end());

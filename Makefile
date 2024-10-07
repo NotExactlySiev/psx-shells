@@ -1,25 +1,15 @@
-TGT := mipsel-unknown-linux-gnu
-GCC	:= $(TGT)-gcc -O3 -Wall -Werror -fno-pic -fno-builtin -mno-abicalls -mfp32 -mips1 -march=mips1 -nolibc -nostdlib
-LD  := $(TGT)-ld
+TGT 		:= mipsel-unknown-linux-gnu
+CCFLAGS		:= -O3 -flto -march=mips1 -mips1 -fno-pic -mno-abicalls -static -nolibc -nostdlib -nodefaultlibs
 
-OBJS	:= main.o readjoy.o string.o
-# math.o clock.o gpu.o input.o grass.o
-all:    main.exe
+OUT			:= demo.elf
 
+all:    $(OUT)
 .PHONY: all
 
-main.exe:  $(OBJS)
-	$(LD) -o main.exe -Map=main.map -T ps-exe.ld $(OBJS) 
-
-
-%.o:    %.s
-	$(GCC) -c -o $*.o $*.s
-
-%.o:    %.c
-	$(GCC) -c -o $*.o $*.c
+$(OUT): main.c readjoy.s string.c gpu.c clock.c math.c input.c grass.c
+	$(TGT)-gcc -Wl,-Map=main.map -T executable.ld $(CCFLAGS) -o $@ $^
+	$(TGT)-objcopy --remove-section .pdr $@
 
 clean:
-	rm *.o
-	rm *.exe
-
+	rm $(OUT)
 .PHONY: clean

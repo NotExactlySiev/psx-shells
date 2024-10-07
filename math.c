@@ -91,7 +91,7 @@ void vec3_print(Vec3 a)
     fixed_print(a.x);
     fixed_print(a.y);
     fixed_print(a.z);
-    printf("\n", 0);
+    k_printf("\n", 0);
 }
 
 Mat mat_multiply(Mat a, Mat b)
@@ -116,11 +116,11 @@ void mat_print(Mat* m)
     for (int i = 0; i < 3; i++) {
         for (int j = 0; j < 3; j++) {
             fixed_print(m->m[i][j]);
-            printf("\t", 0);
+            k_printf("\t", 0);
         }
-        printf("\n", 0);
+        k_printf("\n", 0);
     }
-    printf("\n", 0);
+    k_printf("\n", 0);
 }
 
 int iabs(int x)

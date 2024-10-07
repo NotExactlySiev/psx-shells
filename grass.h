@@ -1,0 +1,1 @@
+void draw_grass(PrimBuf *pb, Vec3 pos, int sheer, int spread);

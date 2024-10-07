@@ -10,7 +10,7 @@
 void clock_print(Time t)
 {
     //int ratio = fixed_div(t.clock, t.hblank);
-    printf("\t%d : %d", t.hblank,  t.clock);
+    k_printf("\t%d : %d", t.hblank,  t.clock);
 }
 
 void clock_init(void)

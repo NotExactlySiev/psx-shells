@@ -6,7 +6,7 @@
 #define PREC    12
 #define ONE     (1 << PREC)
 
-void printf(char* fmt, ...);
+void k_printf(char* fmt, ...);
 
 static int fixed_div(int a, int b)
 {

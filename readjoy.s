@@ -92,7 +92,7 @@ $wait:
 
 sysc 1, EnterCriticalSection
 sysc 2, ExitCriticalSection
-kern 0xA0, 0x3F, printf
+kern 0xA0, 0x3F, k_printf
 kern 0xB0, 0x04, enable_timer_irq
 kern 0xB0, 0x05, disable_timer_irq
 kern 0xB0, 0x08, OpenEvent
@@ -228,7 +228,7 @@ transform_perspective:
     mfc2    $t0, $14    # SXY2
     mfc2    $t2, $19    # SZ3
     nop
-    addi    $t1, $t0, $r0
+    add     $t1, $t0, $zero
     sll     $t0, 16     # sign extend X
     sra     $t0, 16
     sw      $t0, 0x0($a0)
