@@ -1,8 +1,5 @@
-#include <stdint.h>
-
 #include "common.h"
 #include "gpucmd.h"
-
 
 // FIXME: lto doesn't work so we're doing this for now :P
 //#include "math.h"
@@ -30,20 +27,6 @@ void fixed_print(int x)
 
 #define VPRINT(v)   printf(#v "\t= ", (v)); vec3_print(v);
 #define MPRINT(m)   printf(#m "\t=\n", (m)); mat_print(m); printf("\n", m);
-
-void draw_quad(PrimBuf *pb, Vec3 verts[4], int layer, uint16_t tpage, uint16_t clut, uint u0, uint v0, uint u1, uint v1)
-{
-    uint32_t *prim = next_prim(pb, 9, layer);
-    *prim++ = gp0_rgb(128, 128, 128) | gp0_quad(true, false);
-    *prim++ = gp0_xy(verts[0].x, verts[0].y);
-    *prim++ = gp0_uv(u0, v0, clut);    
-    *prim++ = gp0_xy(verts[1].x, verts[1].y);
-    *prim++ = gp0_uv(u1, v0, tpage);
-    *prim++ = gp0_xy(verts[2].x, verts[2].y);
-    *prim++ = gp0_uv(u0, v1, 0);
-    *prim++ = gp0_xy(verts[3].x, verts[3].y);
-    *prim++ = gp0_uv(u1, v1, 0);
-}
 
 void draw_line(PrimBuf *pb, Vec3 a, Vec3 b, uint32_t color)
 {
@@ -140,7 +123,7 @@ int _start()
         last_frame = frame;
         t += delta;
         printf("\nFRAME %05d (+%d): ", t, delta);
-        uint32_t *prim;
+        //uint32_t *prim;
 
         uint16_t pad_new = read_pad();
         uint16_t pad_edge = pad ^ pad_new;
@@ -196,18 +179,18 @@ int _start()
 
 
         Mat cam_trans = {
-            { ONE,    0,      0,
-              0,      ONE,    0,
-              0,      0,      ONE },
+            {{ ONE,    0,      0 },
+            {  0,      ONE,    0 },
+            {  0,      0,      ONE }},
             { -camera.x, -camera.y, -camera.z }
         };
         
         int sint = isin(angle_x);
         int cost = icos(angle_x);
         Mat cam_rotx = {
-            { ONE,    0,          0,
-              0,      cost,     -sint,
-              0,      sint,    cost, },
+            {{ ONE,    0,          0 },
+             { 0,      cost,     -sint },
+             { 0,      sint,    cost, }},
             { 0, 0, 0 }
         };
 
@@ -215,9 +198,9 @@ int _start()
         cost = icos(angle_y);
         // this is part of the projection matrix
         Mat cam_roty = {
-            { cost,       0,      sint,
-              0,          ONE,    0,
-              -sint,      0,      cost },
+            {{ cost,       0,      sint },
+            {  0,          ONE,    0 },
+            {  -sint,      0,      cost }},
             { 0, 0, 0 }
         };
 

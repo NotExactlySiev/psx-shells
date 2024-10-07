@@ -150,7 +150,7 @@ int iabs(int x)
 #define	C		3516
 
 static inline int _isin(int qN, int x) {
-	int c, x2, y;
+	int c, y;
 
 	c  = x << (30 - qN);			// Semi-circle info into carry.
 	x -= 1 << qN;					// sine -> cosine calc

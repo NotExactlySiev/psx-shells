@@ -15,10 +15,22 @@ struct PrimBuf {
 
 static PrimBuf primbufs[2];
 static int curr = 0;
+static int vsync_event = 0;
 
 #define RCntCNT3    0xF2000003
 #define EvSpINT     0x0002
 #define EvMdINTR    0x1000
+
+int  EnterCriticalSection(void);
+void ExitCriticalSection(void);
+int OpenEvent(uint,int,int,int (*func)());
+int CloseEvent(int);
+int WaitEvent(int);
+int TestEvent(int);
+int EnableEvent(int);
+int DisableEvent(int);
+int enable_timer_irq(uint);
+int disable_timer_irq(uint);
 
 int enable_vblank_event(void* handler)
 {
@@ -34,7 +46,6 @@ int enable_vblank_event(void* handler)
 void disable_vblank_event(int event)
 {
     EnterCriticalSection();
-    StopRCnt(RCntCNT3);
     disable_timer_irq(3);
     CloseEvent(event);
     ExitCriticalSection();
@@ -67,7 +78,7 @@ PrimBuf *gpu_init(void)
 {
     curr = 0;
     clear_buffer(&primbufs[curr]);
-    int ev = enable_vblank_event(vsync_handler);
+    vsync_event = enable_vblank_event(vsync_handler);
     frame = 0;
 
     return &primbufs[curr];

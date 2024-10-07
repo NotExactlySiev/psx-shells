@@ -4,6 +4,20 @@
 
 #define NLAYERS 16
 
+static void draw_quad(PrimBuf *pb, Vec3 verts[4], int layer, uint16_t tpage, uint16_t clut, uint u0, uint v0, uint u1, uint v1)
+{
+    uint32_t *prim = next_prim(pb, 9, layer);
+    *prim++ = gp0_rgb(128, 128, 128) | gp0_quad(true, false);
+    *prim++ = gp0_xy(verts[0].x, verts[0].y);
+    *prim++ = gp0_uv(u0, v0, clut);    
+    *prim++ = gp0_xy(verts[1].x, verts[1].y);
+    *prim++ = gp0_uv(u1, v0, tpage);
+    *prim++ = gp0_xy(verts[2].x, verts[2].y);
+    *prim++ = gp0_uv(u0, v1, 0);
+    *prim++ = gp0_xy(verts[3].x, verts[3].y);
+    *prim++ = gp0_uv(u1, v1, 0);
+}
+
 // break them down into smaller chunks if they're closer, and frustum cull those
 // one by one. the fucntion that draws a chunk should take in u,v
 // TODO: separate X and Z sheer
@@ -58,9 +72,9 @@ void draw_patch(PrimBuf *pb, Vec3 pos, uint l, int sheer, int spread,
     }
 
     Mat modelview = {
-        { ONE, -sheer, 0,
-          0, ONE, 0,
-          0, -sheer, ONE },
+        {{ ONE, -sheer, 0 },
+        { 0, ONE, 0 },
+        {  0, -sheer, ONE }},
         { pos.x, pos.y, pos.z },
     };
 
