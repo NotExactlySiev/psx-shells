@@ -68,6 +68,72 @@ Vec3 vec3_scale(Vec3 a, int s)
     return ret;
 }
 
+int vec3_dot(Vec3 a, Vec3 b)
+{
+    return (a.x * b.x + a.y * b.y + a.z * b.z) / ONE;
+}
+
+Vec3 vec3_multiply_matrix(Vec3 v, Mat *m)
+{
+    // TODO: make the translation part of the matrix a Vec3
+    return (Vec3) {
+        .x = m->t[0]
+            + (v.x * m->m[0][0] + v.y * m->m[0][1] + v.z * m->m[0][2])/ONE,
+        .y = m->t[1]
+            + (v.x * m->m[1][0] + v.y * m->m[1][1] + v.z * m->m[1][2])/ONE,
+        .z = m->t[2]
+            + (v.x * m->m[2][0] + v.y * m->m[2][1] + v.z * m->m[2][2])/ONE,
+    };
+}
+
+void vec3_print(Vec3 a)
+{
+    fixed_print(a.x);
+    fixed_print(a.y);
+    fixed_print(a.z);
+    printf("\n", 0);
+}
+
+Mat mat_multiply(Mat a, Mat b)
+{
+    // B's tran has to rotate by a
+    // ret = AB
+    Mat ret;
+    for (int i = 0; i < 3; i++)
+    for (int j = 0; j < 3; j++) {
+        ret.m[i][j] = (a.m[i][0] * b.m[0][j]
+                     + a.m[i][1] * b.m[1][j]
+                     + a.m[i][2] * b.m[2][j]) / ONE;
+        ret.t[0] = (b.t[0] * a.m[0][0] + b.t[1] * a.m[0][1] + b.t[2] * a.m[0][2])/ONE + a.t[0];
+        ret.t[1] = (b.t[0] * a.m[1][0] + b.t[1] * a.m[1][1] + b.t[2] * a.m[1][2])/ONE + a.t[1];
+        ret.t[2] = (b.t[0] * a.m[2][0] + b.t[1] * a.m[2][1] + b.t[2] * a.m[2][2])/ONE + a.t[2];
+    }
+    return ret;
+}
+
+void mat_print(Mat* m)
+{
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            fixed_print(m->m[i][j]);
+            printf("\t", 0);
+        }
+        printf("\n", 0);
+    }
+    printf("\n", 0);
+}
+
+int iabs(int x)
+{
+    return x < 0 ? -x : x;
+    asm("sra %0,%1,31\n"
+        "xor %1, %0\n"
+        "sub %0, %1, %0\n"
+        : "=r"(x)
+        : "r"(x)
+    );
+    return x;
+}
 
 /*
  * PSn00bSDK (incomplete) trigonometry library
