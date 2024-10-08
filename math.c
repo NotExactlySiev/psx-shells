@@ -88,13 +88,41 @@ void vec3_multiply_matrix(Vec3 *out, Vec3 *in, uint n, Mat *m)
 #else
     gte_load_matrix(m);
     for (int i = 0; i < n; i++) {
-        gte_setV0(in[i].x, in[i].y, in[i].z);
+        gte_loadV0(&in[i]);
         gte_command(GTE_CMD_MVMVA | GTE_SF | GTE_MX_RT | GTE_V_V0 | GTE_CV_TR);
         out[i] = (Vec3) {
             gte_getIR1(),
             gte_getIR2(),
             gte_getIR3(),
         };
+    }
+#endif
+}
+
+void transform(Vec3 *out, Vec3 *in, uint n, Mat *m)
+{
+#ifdef NO_GTE
+    vec3_multiply_matrix(out, in, n, m);
+    for (int i = 0; i < n; i++) {
+        int factor = (2*fixed_div(SCREEN_H, out[i].z)+1)/2;
+        out[i].x = (factor * out[i].x) / ONE;
+        out[i].y = (factor * out[i].y) / ONE;
+    }
+#else
+    gte_load_matrix(m);
+    // FIXME: this assumes n % 3 == 0
+    for (int i = 0; i < n; i += 3) {
+        gte_loadV012(&in[i]);
+        gte_command(GTE_CMD_RTPT | GTE_SF);
+        uint32_t sx2 = gte_getSXY2();
+        gte_storeSXY0((uint32_t*) &out[i]);
+        gte_storeSZ1(&out[i].z);
+
+        gte_storeSXY1((uint32_t*) &out[i+1]);
+        gte_storeSZ2(&out[i+1].z);
+
+        gte_storeSXY2((uint32_t*) &out[i+2]);
+        gte_storeSZ3(&out[i+2].z);
     }
 #endif
 }

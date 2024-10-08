@@ -1,5 +1,5 @@
 TGT 		:= mipsel-unknown-linux-gnu
-CCFLAGS		:= -g -O3 -flto -Wl,--oformat=elf32-tradlittlemips -march=mips1 \
+CCFLAGS		:= -O3 -flto -Wl,--oformat=elf32-tradlittlemips -march=mips1 \
 			   -mips1 -fno-pic -mno-abicalls -static -nolibc -nostdlib
 
 all:    demo.exe demo.elf

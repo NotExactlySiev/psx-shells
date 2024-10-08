@@ -4,38 +4,7 @@
 #include "grass.h"
 #include "cop0gte.h"
 
-
 #define NLAYERS 16
-
-// data oriented take in vector OOOOOH
-static void transform(Vec3 *out, Vec3 *in, uint n, Mat *m)
-{
-#ifdef NO_GTE
-    vec3_multiply_matrix(out, in, n, m);
-    for (int i = 0; i < n; i++) {
-        int factor = (2*fixed_div(SCREEN_H, out[i].z)+1)/2;
-        out[i].x = (factor * out[i].x) / ONE;
-        out[i].y = (factor * out[i].y) / ONE;
-    }
-#else
-    gte_load_matrix(m);
-    gte_setFieldOfView(SCREEN_H);
-    // FIXME: this assumes n % 3 == 0
-    for (int i = 0; i < n; i += 3) {
-        gte_loadV012(&in[i]);
-        gte_command(GTE_CMD_RTPT | GTE_SF);
-        uint32_t sx2 = gte_getSXY2();
-        gte_storeSXY0((uint32_t*) &out[i]);
-        gte_storeSZ1(&out[i].z);
-
-        gte_storeSXY1((uint32_t*) &out[i+1]);
-        gte_storeSZ2(&out[i+1].z);
-
-        gte_storeSXY2((uint32_t*) &out[i+2]);
-        gte_storeSZ3(&out[i+2].z);
-    }
-#endif
-}
 
 static void draw_quad(PrimBuf *pb, Vec3 verts[4], int layer, uint16_t tpage, uint16_t clut, uint u0, uint v0, uint u1, uint v1)
 {

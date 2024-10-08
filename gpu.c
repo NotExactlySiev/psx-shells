@@ -140,7 +140,7 @@ void gpu_sync(void)
 
 Vec3 camera = {0};
 Mat projection;
-int near = ONE/16;
+int near = ONE/4;
 int far = 10*ONE;
 
 // is a point in view when projected to camera space?
@@ -154,6 +154,6 @@ bool in_view(Vec3 point, Vec3 *projected)
         projected->x = ((SCREEN_H / 2) * projected->x) / projected->z;
         projected->y = ((SCREEN_W / 2) * projected->y) / projected->z;
     }
-    return (iabs(proj.x) <= proj.z + 0*proj.z/5)
+    return (iabs(proj.x) <= proj.z/2 + 0*proj.z/5)
         && (iabs(proj.y) <= proj.z + 0*proj.z/8);
 }

@@ -63,9 +63,7 @@ extern volatile int frame;
 
 static void gte_init(void) {
     cop0_setSR(cop0_getSR() | COP0_SR_CU2);
-    //gte_setXYOrigin(width / 2, height / 2);
-    //gte_setFieldOfView(width);
-    //gte_setZScaleFactor(ONE / ORDERING_TABLE_SIZE);
+    gte_setFieldOfView(SCREEN_W);
 }
 
 int _start()

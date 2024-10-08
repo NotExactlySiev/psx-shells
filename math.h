@@ -1,23 +1,10 @@
 #pragma once
 #include "common.h"
 #include "cop0gte.h"
-/*
-typedef struct {
-    int16_t x;
-    int16_t y;
-    int16_t z;
-} Vec3;
-
-typedef struct {
-    int16_t m[3][3];    // row, col
-    int16_t t[3];
-} Mat;
-*/
 
 typedef GTEVector16 Vec3;
 typedef struct {
     GTEMatrix m;    // row, col
-    //int16_t t[3];
     Vec3 t;
 } Mat;
 
@@ -40,10 +27,6 @@ void vec3_multiply_matrix(Vec3 *out, Vec3 *in, uint n, Mat *m);
 
 static void gte_load_matrix(Mat *m)
 {
-    gte_setRotationMatrix(
-        m->m.values[0][0], m->m.values[0][1], m->m.values[0][2],
-        m->m.values[1][0], m->m.values[1][1], m->m.values[1][2],
-        m->m.values[2][0], m->m.values[2][1], m->m.values[2][2]
-    );
+    gte_loadRotationMatrix(&m->m);
     gte_setTranslationVector(m->t.x, m->t.y, m->t.z);
 }
