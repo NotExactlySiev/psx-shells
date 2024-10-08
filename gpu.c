@@ -146,16 +146,8 @@ int far = 10*ONE;
 // is a point in view when projected to camera space?
 bool in_view(Vec3 point, Vec3 *projected)
 {
-#ifndef NO_GTE
-    Mat *m = &projection;
-    gte_setRotationMatrix(
-        m->m[0][0], m->m[0][1], m->m[0][2],
-        m->m[1][0], m->m[1][1], m->m[1][2],
-        m->m[2][0], m->m[2][1], m->m[2][2]
-    );
-    gte_setTranslationVector(m->t[0], m->t[1], m->t[2]);
-#endif
-    Vec3 proj = vec3_multiply_matrix(point, &projection);
+    Vec3 proj;
+    vec3_multiply_matrix(&proj, &point, 1, &projection);
     if (proj.z < near || proj.z > far) return false;
     if (projected != NULL) {
         *projected = proj;
@@ -163,6 +155,5 @@ bool in_view(Vec3 point, Vec3 *projected)
         projected->y = ((SCREEN_W / 2) * projected->y) / projected->z;
     }
     return (iabs(proj.x) <= proj.z + 0*proj.z/5)
-        && (iabs(proj.y) <= proj.z + 0*proj.z/8)
-        ;
+        && (iabs(proj.y) <= proj.z + 0*proj.z/8);
 }

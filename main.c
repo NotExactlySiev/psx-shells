@@ -44,9 +44,11 @@ void draw_axes(PrimBuf *pb)
 
     if (!in_view(verts[0], &proj[0]))
         return;
-    
+
+    // TODO: use the new transform function here
+    /*    
     for (int i = 1; i < 4; i++) {
-        proj[i] = vec3_multiply_matrix(verts[i], &projection);
+        vec3_multiply_matrix(&proj[i], &verts[i], 1, &projection);
         proj[i].x = ((SCREEN_H / 2) * proj[i].x) / proj[i].z;
         proj[i].y = ((SCREEN_W / 2) * proj[i].y) / proj[i].z;
     }
@@ -54,6 +56,7 @@ void draw_axes(PrimBuf *pb)
     draw_line(pb, proj[0], proj[1], gp0_rgb(255, 0, 0));
     draw_line(pb, proj[0], proj[2], gp0_rgb(0, 255, 0));
     draw_line(pb, proj[0], proj[3], gp0_rgb(0, 0, 255));
+    */
 }
 
 extern volatile int frame;
@@ -182,18 +185,18 @@ int _start()
 
 
         Mat cam_trans = {
-            {{ ONE,    0,      0 },
+            {{{ ONE,    0,      0 },
             {  0,      ONE,    0 },
-            {  0,      0,      ONE }},
+            {  0,      0,      ONE }}},
             { -camera.x, -camera.y, -camera.z }
         };
         
         int sint = isin(angle_x);
         int cost = icos(angle_x);
         Mat cam_rotx = {
-            {{ ONE,    0,          0 },
+            {{{ ONE,    0,          0 },
              { 0,      cost,     -sint },
-             { 0,      sint,    cost, }},
+             { 0,      sint,    cost, }}},
             { 0, 0, 0 }
         };
 
@@ -201,16 +204,19 @@ int _start()
         cost = icos(angle_y);
         // this is part of the projection matrix
         Mat cam_roty = {
-            {{ cost,       0,      sint },
+            {{{ cost,       0,      sint },
             {  0,          ONE,    0 },
-            {  -sint,      0,      cost }},
+            {  -sint,      0,      cost }}},
             { 0, 0, 0 }
         };
 
+        // to normalized screen space coordinates
+        int right = ONE;
+        int bottom = ONE;
         Mat cam_screen = {
-            {{ 4*ONE,       0,      0 },
-            {  0,          4*ONE,    0 },
-            {  0,      0,            4*ONE }},
+            {{{ fixed_div(ONE, right),       0,      0 },
+            {  0,          fixed_div(ONE, bottom),    0 },
+            {  0,      0,            ONE }}},
             { 0, 0, 0 }
         };
 
@@ -221,7 +227,7 @@ int _start()
         
         // drawing
         clock_begin();
-        draw_grass(pb, pos, icos(t * 26) / 8, icos(t * 17) * 7);
+        draw_grass(pb, pos, icos(t * 26) / 16, icos(t * 17) * 3);
 
         if (~pad & 1)
             draw_axes(pb);

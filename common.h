@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include "registers.h"
 
-#define NO_GTE
+//#define NO_GTE
 
 #define PREC    12
 #define ONE     (1 << PREC)

@@ -7,6 +7,36 @@
 
 #define NLAYERS 16
 
+// data oriented take in vector OOOOOH
+static void transform(Vec3 *out, Vec3 *in, uint n, Mat *m)
+{
+#ifdef NO_GTE
+    vec3_multiply_matrix(out, in, n, m);
+    for (int i = 0; i < n; i++) {
+        int factor = (2*fixed_div(SCREEN_H, out[i].z)+1)/2;
+        out[i].x = (factor * out[i].x) / ONE;
+        out[i].y = (factor * out[i].y) / ONE;
+    }
+#else
+    gte_load_matrix(m);
+    gte_setFieldOfView(SCREEN_H);
+    // FIXME: this assumes n % 3 == 0
+    for (int i = 0; i < n; i += 3) {
+        gte_loadV012(&in[i]);
+        gte_command(GTE_CMD_RTPT | GTE_SF);
+        uint32_t sx2 = gte_getSXY2();
+        gte_storeSXY0((uint32_t*) &out[i]);
+        gte_storeSZ1(&out[i].z);
+
+        gte_storeSXY1((uint32_t*) &out[i+1]);
+        gte_storeSZ2(&out[i+1].z);
+
+        gte_storeSXY2((uint32_t*) &out[i+2]);
+        gte_storeSZ3(&out[i+2].z);
+    }
+#endif
+}
+
 static void draw_quad(PrimBuf *pb, Vec3 verts[4], int layer, uint16_t tpage, uint16_t clut, uint u0, uint v0, uint u1, uint v1)
 {
     uint32_t *prim = next_prim(pb, 9, layer);
@@ -33,7 +63,7 @@ static void draw_patch(PrimBuf *pb, Vec3 pos, uint len, int sheer, int spread,
 
     Vec3 quads[NLAYERS][4];
     for (int layer = 0; layer < NLAYERS; layer++) {
-        Vec3 offset = { 0, -50 * layer, 0 };
+        Vec3 offset = { 0, -20 * layer, 0 };
         for (int i = 0; i < 4; i++) {
             quads[layer][i] = vec3_add(verts[i], offset);
             int s = ONE + layer * spread / ONE;
@@ -43,34 +73,15 @@ static void draw_patch(PrimBuf *pb, Vec3 pos, uint len, int sheer, int spread,
     }
 
     Mat modelview = {
-        {{ ONE, -sheer, 0 },
+        {{{ ONE, -sheer, 0 },
          { 0,   ONE,    0 },
-         { 0,   -sheer, ONE }},
+         { 0,   -sheer, ONE }}},
         { pos.x, pos.y, pos.z },
     };
 
     Mat matr = mat_multiply(projection, modelview);
-#ifndef NO_GTE
-    Mat *m = &matr;
-    gte_setRotationMatrix(
-        m->m[0][0], m->m[0][1], m->m[0][2],
-        m->m[1][0], m->m[1][1], m->m[1][2],
-        m->m[2][0], m->m[2][1], m->m[2][2]
-    );
-    gte_setTranslationVector(m->t[0], m->t[1], m->t[2]);
-#endif
-
     Vec3 final[NLAYERS][4];
-    for (int layer = 0; layer < NLAYERS; layer++) {
-        for (int i = 0; i < 4; i++) {
-            // project
-            Vec3 proj = vec3_multiply_matrix(quads[layer][i], &matr);
-            // final step
-            proj.x = ((SCREEN_H / 2) * proj.x) / proj.z;
-            proj.y = ((SCREEN_W / 2) * proj.y) / proj.z;
-            final[layer][i] = proj;
-        }
-    }
+    transform(final, quads, NLAYERS*4, &matr);
     
     for (int layer = 0; layer < NLAYERS; layer++) {
         draw_quad(pb, final[layer], 20 - layer,
@@ -111,10 +122,10 @@ static void _draw_grass(PrimBuf *pb, Vec3 pos, uint l, int sheer, int spread,
     }
 }
 
-// TODO: l >= 6 breaks this. but not if _draw_grass is called directly from main
+// TODO: l >= 8 breaks this. but not if _draw_grass is called directly from main
 void draw_grass(PrimBuf *pb, Vec3 pos, int sheer, int spread)
 {
-    int level = 6;
+    int level = 8;
     int tex = 4 << level;
     _draw_grass(pb, pos, level, sheer, spread, 0, 0, tex, tex);
 }
