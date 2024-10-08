@@ -1,4 +1,5 @@
 #include "math.h"
+#include "cop0gte.h"
 
 static int rand_r(unsigned int *seed)
 {
@@ -74,6 +75,7 @@ int vec3_dot(Vec3 a, Vec3 b)
 
 Vec3 vec3_multiply_matrix(Vec3 v, Mat *m)
 {
+#ifdef NO_GTE
     // TODO: make the translation part of the matrix a Vec3
     return (Vec3) {
         .x = m->t[0]
@@ -83,6 +85,15 @@ Vec3 vec3_multiply_matrix(Vec3 v, Mat *m)
         .z = m->t[2]
             + (v.x * m->m[2][0] + v.y * m->m[2][1] + v.z * m->m[2][2])/ONE,
     };
+#else
+    gte_setV0(v.x, v.y, v.z);
+    gte_command(GTE_CMD_MVMVA | GTE_SF | GTE_MX_RT | GTE_V_V0 | GTE_CV_TR);
+    return (Vec3) {
+        gte_getIR1(),
+        gte_getIR2(),
+        gte_getIR3(),
+    };
+#endif
 }
 
 void vec3_print(Vec3 a)

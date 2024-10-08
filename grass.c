@@ -2,6 +2,7 @@
 #include "gpu.h"
 #include "math.h"
 #include "grass.h"
+#include "cop0gte.h"
 
 
 #define NLAYERS 16
@@ -49,6 +50,15 @@ static void draw_patch(PrimBuf *pb, Vec3 pos, uint len, int sheer, int spread,
     };
 
     Mat matr = mat_multiply(projection, modelview);
+#ifndef NO_GTE
+    Mat *m = &matr;
+    gte_setRotationMatrix(
+        m->m[0][0], m->m[0][1], m->m[0][2],
+        m->m[1][0], m->m[1][1], m->m[1][2],
+        m->m[2][0], m->m[2][1], m->m[2][2]
+    );
+    gte_setTranslationVector(m->t[0], m->t[1], m->t[2]);
+#endif
 
     Vec3 final[NLAYERS][4];
     for (int layer = 0; layer < NLAYERS; layer++) {
@@ -76,12 +86,13 @@ static void draw_patch(PrimBuf *pb, Vec3 pos, uint len, int sheer, int spread,
 static void _draw_grass(PrimBuf *pb, Vec3 pos, uint l, int sheer, int spread,
     uint u0, uint v0, uint u1, uint v1)
 {
-    int len = (ONE/4) * (1 << l);
+    int len = (ONE/32) * (1 << l);
     
     // these are only computed if l > 0 so we don't short circuit. a bit clunky
     Vec3 camera_xz = { camera.x, 0, camera.z };
     uint64_t distance2 = vec3_mag2(vec3_sub(pos, camera_xz));
-    uint64_t threshhold = (ONE) * (1 << l);
+    //uint64_t threshhold = (ONE) * (1 << l);
+    uint64_t threshhold = len * 4;
     uint64_t threshhold2 = threshhold * threshhold / ONE;
     if (l > 0 && distance2 < threshhold2) {
         // subdivide
@@ -103,7 +114,7 @@ static void _draw_grass(PrimBuf *pb, Vec3 pos, uint l, int sheer, int spread,
 // TODO: l >= 6 breaks this. but not if _draw_grass is called directly from main
 void draw_grass(PrimBuf *pb, Vec3 pos, int sheer, int spread)
 {
-    int level = 5;
-    int tex = 16 << level;
+    int level = 6;
+    int tex = 4 << level;
     _draw_grass(pb, pos, level, sheer, spread, 0, 0, tex, tex);
 }

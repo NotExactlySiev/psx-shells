@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include "cop0gte.h"
 
 #include "registers.h"
 #include "gpucmd.h"
@@ -18,6 +19,7 @@ static PrimBuf primbufs[2];
 static int curr = 0;
 static int vsync_event = 0;
 
+// TODO: move kernel stuff to another header
 #define RCntCNT3    0xF2000003
 #define EvSpINT     0x0002
 #define EvMdINTR    0x1000
@@ -138,20 +140,29 @@ void gpu_sync(void)
 
 Vec3 camera = {0};
 Mat projection;
-int near = 1*ONE;
-int far = 35*ONE;
+int near = ONE/16;
+int far = 10*ONE;
 
 // is a point in view when projected to camera space?
 bool in_view(Vec3 point, Vec3 *projected)
 {
+#ifndef NO_GTE
+    Mat *m = &projection;
+    gte_setRotationMatrix(
+        m->m[0][0], m->m[0][1], m->m[0][2],
+        m->m[1][0], m->m[1][1], m->m[1][2],
+        m->m[2][0], m->m[2][1], m->m[2][2]
+    );
+    gte_setTranslationVector(m->t[0], m->t[1], m->t[2]);
+#endif
     Vec3 proj = vec3_multiply_matrix(point, &projection);
+    if (proj.z < near || proj.z > far) return false;
     if (projected != NULL) {
         *projected = proj;
         projected->x = ((SCREEN_H / 2) * projected->x) / projected->z;
         projected->y = ((SCREEN_W / 2) * projected->y) / projected->z;
     }
-    return (proj.z > near && proj.z < far)
-        && (iabs(proj.x) <= proj.z + 3*proj.z/5)
-        && (iabs(proj.y) <= proj.z + 3*proj.z/8)
+    return (iabs(proj.x) <= proj.z + 0*proj.z/5)
+        && (iabs(proj.y) <= proj.z + 0*proj.z/8)
         ;
 }

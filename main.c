@@ -1,5 +1,6 @@
 #include "common.h"
 #include "gpucmd.h"
+#include "cop0gte.h"
 
 #include "math.h"
 #include "clock.h"
@@ -57,10 +58,18 @@ void draw_axes(PrimBuf *pb)
 
 extern volatile int frame;
 
+static void gte_init(void) {
+    cop0_setSR(cop0_getSR() | COP0_SR_CU2);
+    //gte_setXYOrigin(width / 2, height / 2);
+    //gte_setFieldOfView(width);
+    //gte_setZScaleFactor(ONE / ORDERING_TABLE_SIZE);
+}
+
 int _start()
 {
     init_pad();
     clock_init();
+    gte_init();
 
     GPU_GP1 = gp1_resetGPU();
 	GPU_GP1 = gp1_dmaRequestMode(GP1_DREQ_GP0_WRITE);
@@ -108,8 +117,8 @@ int _start()
     uint16_t pad = 0;
     Vec3 pos = { 0, 0, 0 };
     
-    camera.y = -2.5 * ONE;
-    camera.z = 0 * ONE;
+    camera.y = -0.5 * ONE;
+    camera.z = -0 * ONE;
     int last_frame = frame;
     uint t = 0;
     for (;;) {
@@ -198,9 +207,17 @@ int _start()
             { 0, 0, 0 }
         };
 
-        projection = mat_multiply(cam_rotx,
-                     mat_multiply(cam_roty, 
-                                  cam_trans));
+        Mat cam_screen = {
+            {{ 4*ONE,       0,      0 },
+            {  0,          4*ONE,    0 },
+            {  0,      0,            4*ONE }},
+            { 0, 0, 0 }
+        };
+
+        projection = mat_multiply(cam_screen,
+                     mat_multiply(cam_rotx, 
+                     mat_multiply(cam_roty,
+                                  cam_trans)));
         
         // drawing
         clock_begin();
