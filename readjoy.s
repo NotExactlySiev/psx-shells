@@ -30,6 +30,7 @@ kern 0xB0, 0x09, CloseEvent
 kern 0xB0, 0x0C, EnableEvent
 kern 0xB0, 0x0D, DisableEvent
 
+
 .globl vec3_cross
 .type vec3_cross,@function
 vec3_cross:
@@ -88,6 +89,7 @@ set_rotation_matrix:
     jr      $ra
     nop
 
+/*
 .globl set_translation_vector
 .type set_translation_vector,@function
 set_translation_vector:
@@ -160,3 +162,4 @@ transform_orthographic:
 
     jr  $ra
     nop
+*/

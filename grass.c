@@ -2,6 +2,7 @@
 #include "gpu.h"
 #include "math.h"
 #include "grass.h"
+#include "camera.h"
 #include "cop0gte.h"
 
 #define NLAYERS 16
@@ -62,16 +63,14 @@ static void draw_patch(PrimBuf *pb, Vec3 pos, uint len, int sheer, int spread,
 }
 
 // TODO: separate X and Z sheer
-// FIXME: l >= 7 breaks this, but not in -O3
 static void _draw_grass(PrimBuf *pb, Vec3 pos, uint l, int sheer, int spread,
     uint u0, uint v0, uint u1, uint v1)
 {
-    int len = (ONE/32) * (1 << l);
+    int len = (ONE/16) * (1 << l);
     
     // these are only computed if l > 0 so we don't short circuit. a bit clunky
     Vec3 camera_xz = { camera.x, 0, camera.z };
     uint64_t distance2 = vec3_mag2(vec3_sub(pos, camera_xz));
-    //uint64_t threshhold = (ONE) * (1 << l);
     uint64_t threshhold = len * 4;
     uint64_t threshhold2 = threshhold * threshhold / ONE;
     if (l > 0 && distance2 < threshhold2) {
@@ -94,7 +93,7 @@ static void _draw_grass(PrimBuf *pb, Vec3 pos, uint l, int sheer, int spread,
 // TODO: l >= 8 breaks this. but not if _draw_grass is called directly from main
 void draw_grass(PrimBuf *pb, Vec3 pos, int sheer, int spread)
 {
-    int level = 8;
-    int tex = 4 << level;
+    int level = 6;
+    int tex = 16 << level;
     _draw_grass(pb, pos, level, sheer, spread, 0, 0, tex, tex);
 }

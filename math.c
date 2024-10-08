@@ -1,5 +1,6 @@
 #include "math.h"
 #include "cop0gte.h"
+#include "clock.h"
 
 static int rand_r(unsigned int *seed)
 {
@@ -71,6 +72,16 @@ int vec3_dot(Vec3 a, Vec3 b)
     return (a.x * b.x + a.y * b.y + a.z * b.z) / ONE;
 }
 
+Vec3 vec3_multiply_matrix_soft(Vec3 v, Mat *m)
+{
+    Vec3 ret = {
+        .x = (v.x * m->m.values[0][0] + v.y * m->m.values[0][1] + v.z * m->m.values[0][2])/ONE,
+        .y = (v.x * m->m.values[1][0] + v.y * m->m.values[1][1] + v.z * m->m.values[1][2])/ONE,
+        .z = (v.x * m->m.values[2][0] + v.y * m->m.values[2][1] + v.z * m->m.values[2][2])/ONE,
+    };
+    return vec3_add(ret, m->t);
+}
+
 void vec3_multiply_matrix(Vec3 *out, Vec3 *in, uint n, Mat *m)
 {
 #ifdef NO_GTE
@@ -104,9 +115,9 @@ void transform(Vec3 *out, Vec3 *in, uint n, Mat *m)
 #ifdef NO_GTE
     vec3_multiply_matrix(out, in, n, m);
     for (int i = 0; i < n; i++) {
-        int factor = (2*fixed_div(SCREEN_H, out[i].z)+1)/2;
-        out[i].x = (factor * out[i].x) / ONE;
-        out[i].y = (factor * out[i].y) / ONE;
+        int factor = (2*fixed_div(16*SCREEN_H, out[i].z)+1)/2;
+        out[i].x = (factor * out[i].x) / 16*ONE;
+        out[i].y = (factor * out[i].y) / 16*ONE;
     }
 #else
     gte_load_matrix(m);

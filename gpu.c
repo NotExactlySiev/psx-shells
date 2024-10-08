@@ -135,25 +135,3 @@ void gpu_sync(void)
 {
     while (!(GPU_GP1 & GP1_STAT_CMD_READY));
 }
-
-// perspective stuff. should be in a camera.c?
-
-Vec3 camera = {0};
-Mat projection;
-int near = ONE/4;
-int far = 10*ONE;
-
-// is a point in view when projected to camera space?
-bool in_view(Vec3 point, Vec3 *projected)
-{
-    Vec3 proj;
-    vec3_multiply_matrix(&proj, &point, 1, &projection);
-    if (proj.z < near || proj.z > far) return false;
-    if (projected != NULL) {
-        *projected = proj;
-        projected->x = ((SCREEN_H / 2) * projected->x) / projected->z;
-        projected->y = ((SCREEN_W / 2) * projected->y) / projected->z;
-    }
-    return (iabs(proj.x) <= proj.z/2 + 0*proj.z/5)
-        && (iabs(proj.y) <= proj.z + 0*proj.z/8);
-}

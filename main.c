@@ -7,6 +7,7 @@
 #include "gpu.h"
 #include "input.h"
 #include "grass.h"
+#include "camera.h"
 
 #define DEC(x)  (((((x) * 10)/8 * 10)/8 * 10)/ 8 * 10)/ 8
 
@@ -19,9 +20,6 @@ void fixed_print(int x)
 
     k_printf(" [0x%08X] ", x);
 }
-
-#define VPRINT(v)   k_printf(#v "\t= ", (v)); vec3_print(v);
-#define MPRINT(m)   k_printf(#m "\t=\n", (m)); mat_print(m); k_printf("\n", m);
 
 void draw_line(PrimBuf *pb, Vec3 a, Vec3 b, uint32_t color)
 {
@@ -45,25 +43,18 @@ void draw_axes(PrimBuf *pb)
     if (!in_view(verts[0], &proj[0]))
         return;
 
-    // TODO: use the new transform function here
-    /*    
-    for (int i = 1; i < 4; i++) {
-        vec3_multiply_matrix(&proj[i], &verts[i], 1, &projection);
-        proj[i].x = ((SCREEN_H / 2) * proj[i].x) / proj[i].z;
-        proj[i].y = ((SCREEN_W / 2) * proj[i].y) / proj[i].z;
-    }
-
+    transform(proj, verts, 4, &projection);
     draw_line(pb, proj[0], proj[1], gp0_rgb(255, 0, 0));
     draw_line(pb, proj[0], proj[2], gp0_rgb(0, 255, 0));
     draw_line(pb, proj[0], proj[3], gp0_rgb(0, 0, 255));
-    */
+    
 }
 
 extern volatile int frame;
 
 static void gte_init(void) {
     cop0_setSR(cop0_getSR() | COP0_SR_CU2);
-    gte_setFieldOfView(SCREEN_W);
+    gte_setFieldOfView(SCREEN_W/2);
 }
 
 int _start()
@@ -181,48 +172,8 @@ int _start()
             }
         }
 
+        camera_set(camera, angle_x, angle_y);
 
-        Mat cam_trans = {
-            {{{ ONE,    0,      0 },
-            {  0,      ONE,    0 },
-            {  0,      0,      ONE }}},
-            { -camera.x, -camera.y, -camera.z }
-        };
-        
-        int sint = isin(angle_x);
-        int cost = icos(angle_x);
-        Mat cam_rotx = {
-            {{{ ONE,    0,          0 },
-             { 0,      cost,     -sint },
-             { 0,      sint,    cost, }}},
-            { 0, 0, 0 }
-        };
-
-        sint = isin(angle_y);
-        cost = icos(angle_y);
-        // this is part of the projection matrix
-        Mat cam_roty = {
-            {{{ cost,       0,      sint },
-            {  0,          ONE,    0 },
-            {  -sint,      0,      cost }}},
-            { 0, 0, 0 }
-        };
-
-        // to normalized screen space coordinates
-        int right = ONE;
-        int bottom = ONE;
-        Mat cam_screen = {
-            {{{ fixed_div(ONE, right),       0,      0 },
-            {  0,          fixed_div(ONE, bottom),    0 },
-            {  0,      0,            ONE }}},
-            { 0, 0, 0 }
-        };
-
-        projection = mat_multiply(cam_screen,
-                     mat_multiply(cam_rotx, 
-                     mat_multiply(cam_roty,
-                                  cam_trans)));
-        
         // drawing
         clock_begin();
         draw_grass(pb, pos, icos(t * 26) / 16, icos(t * 17) * 3);
