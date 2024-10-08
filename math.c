@@ -14,7 +14,6 @@ static int rand_r(unsigned int *seed)
     return (int) a;
 }
 
-
 unsigned int rnext(void)
 {
     static unsigned int _seed = 2891583007UL;
@@ -123,6 +122,7 @@ void mat_print(Mat* m)
     k_printf("\n", 0);
 }
 
+// TODO: make this branchless
 int iabs(int x)
 {
     return x < 0 ? -x : x;

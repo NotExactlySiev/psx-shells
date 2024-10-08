@@ -20,7 +20,6 @@ static void draw_quad(PrimBuf *pb, Vec3 verts[4], int layer, uint16_t tpage, uin
     *prim++ = gp0_uv(u1, v1, 0);
 }
 
-// draw_patch
 static void draw_patch(PrimBuf *pb, Vec3 pos, uint len, int sheer, int spread,
     uint u0, uint v0, uint u1, uint v1)
 {
@@ -74,8 +73,7 @@ static void draw_patch(PrimBuf *pb, Vec3 pos, uint len, int sheer, int spread,
 
 // TODO: separate X and Z sheer
 // FIXME: l >= 7 breaks this, but not in -O3
-// _draw_grass
-void _draw_grass(PrimBuf *pb, Vec3 pos, uint l, int sheer, int spread,
+static void _draw_grass(PrimBuf *pb, Vec3 pos, uint l, int sheer, int spread,
     uint u0, uint v0, uint u1, uint v1)
 {
     int len = (ONE/4) * (1 << l);
