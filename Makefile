@@ -1,6 +1,6 @@
-TGT 		:= mipsel-unknown-linux-gnu
-CCFLAGS		:= -O3 -flto -Wl,--oformat=elf32-tradlittlemips -march=mips1 \
-			   -mips1 -fno-pic -mno-abicalls -static -nolibc -nostdlib
+TGT 		:= mipsel-unknown-none-elf
+CCFLAGS		:= -O3 -flto -Wl,--oformat=elf32-littlemips -mips1 -march=r3000 \
+		   -G0 -mno-abicalls -static -nolibc -nostdlib
 
 all:    demo.exe demo.elf
 .PHONY: all
