@@ -1,0 +1,12 @@
+- use the newest spicy headers
+- LOD, fewer layers or different resolution on far away grass
+- changing the scale, everything is too large, doesn't fit in int16
+- correct transformation and frustum culling (is hardcoded right now)
+- support for custom normal vector (not just flat ground)
+- changing the layers in game
+- changing the color gradient in game
+- using the scratchpad
+- walking, analog controls
+- height change controls
+- non linear shell layer normal offset increase
+- add readme, how to build
